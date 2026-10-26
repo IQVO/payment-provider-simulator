@@ -5,16 +5,12 @@ paths:
   - "apis/asyncapi*"
 ---
 
-<!-- TEMPLATE (warehouse-harness-template v2): fill in every "FILL IN" for
-     THIS repo, or delete this file if the repo publishes/consumes no Kafka
-     events. The "CloudEvents 1.0 is MANDATORY" section is NOT a
-     placeholder: keep it verbatim, only substitute the per-repo values. -->
 # Cross-service integration events (Kafka)
 
-FILL IN: state whether this service PUBLISHES, CONSUMES, or both, and
-to/from which topic(s). Fleet naming: `warehouse.<context>.events`
-(integration) and `warehouse.<context>.analytics` (consumed only by this
-service's own analytics projector).
+This service PUBLISHES NOTHING and CONSUMES NOTHING (ADR 0002 A16): it is a request/response stand-in for an external
+payment provider. No producer is wired, `KAFKA_BROKERS` is not read, `apis/asyncapi.yaml` declares no channel. The
+harness's `internal/adapters/kafka/cloudevents` and `internal/adapters/outbound/kafka` packages stay in the tree
+unused (the fitness tests expect them). If an event is ever added, the mandatory section below applies in full.
 
 ## Events: CloudEvents 1.0 is MANDATORY
 
@@ -47,8 +43,8 @@ not a preference — there is nothing to "choose" here:
   `dataschema=urn:warehouse:<repo>:<events|analytics>:<EventName>:v<N>`.
   No custom extension attributes without an ADR.
 - `type` = `com.warehouse.<subdomain>.<bounded-context>.<entity>.<EventName>`
-  (subdomain `wms` or `wes`; FILL IN this repo's exact prefix, e.g.
-  `com.warehouse.wes.order-management`). The SAME `type` names the
+  (this storefront service would use the prefix
+  `com.retailnetwork.storefront.payment-provider-simulator`). The SAME `type` names the
   occurrence on both the integration and the analytics topic; `dataschema`
   names the payload shape. Breaking payload change => new `.v2` type + new
   dataschema version, never mutate an existing one.
@@ -63,30 +59,21 @@ not a preference — there is nothing to "choose" here:
   consumer; Kafka integration tests via testcontainers only.
 
 Full standard, subdomain table and the fleet's cross-service type
-catalogue: warehouse-docs `docs/strategic-design/event-standard-cloudevents.md`.
+catalogue: warehouse-docs the warehouse-docs event standard (event-standard-cloudevents).
 Record it in this repo as its own ADR "CloudEvents 1.0 as the mandatory
-event envelope" under `docs/docs/adr/`.
+event envelope" under `docs/adr/`.
 
 ### Published types
 
-FILL IN: one row per published event, exact strings.
-
-| `type` | topic(s) | `subject` | `dataschema` |
-| --- | --- | --- | --- |
-| `com.warehouse.<sub>.<ctx>.<entity>.<EventName>` | `warehouse.<ctx>.events` | aggregate id | `urn:warehouse:<repo>:events:<EventName>:v1` |
+None (ADR 0002 A16).
 
 ### Consumed types
 
-FILL IN: one row per consumed event — the EXACT `type` string from the
-producer's catalogue (byte-identical; see the cross-service catalogue on the
-Event Standard page).
-
-| `type` | topic | producer |
-| --- | --- | --- |
+None (ADR 0002 A16).
 
 ## Consumer group id
 
-If this service consumes Kafka: state where the consumer group id comes
+This service consumes no Kafka topic, so it has no consumer group. If it ever does: state where the consumer group id comes
 from. It MUST be env-configurable, never a hardcoded string literal --
 `internal/architecture/fitness_test.go`'s
 TestKafkaConsumerGroupNeverHardcodedInline enforces this (a real incident:
