@@ -1,0 +1,496 @@
+openapi: 3.0.3
+info:
+  title: Payment Provider Simulator API
+  version: 1.0.0
+  contact:
+    name: payment-provider-simulator maintainers
+    url: https://github.com/IQVO/payment-provider-simulator
+  description: >-
+    Go stand-in for the external payment provider of the digital storefront. It
+    implements exactly the provider contract customer-payments documents in its
+    ADR 0002 assumption A12. Every POST carries an Idempotency-Key header and the
+    same key returns the same answer; bodies are JSON, amounts are integer minor
+    units, and only PSP tokens travel, never a card number. A 4xx decline is
+    final (402 with a code); 5xx and 504 are transient. Outcomes are
+    deterministic: a payment-method token names its test scenario. Scenario
+    vocabulary (POST /tokens issues tok_<scenario>_<suffix>; the bare literals
+    tok_approve, tok_decline, tok_timeout and tok_expire-early also work).
+    approve - authorizes, the hold lasts 7 days. decline - every authorization
+    answers 402 CARD_DECLINED. timeout - the authorization answers 504 after a
+    short delay (at most 2 s). expire-early - authorizes, the hold lasts 5
+    minutes, so re-authorization before expiry is testable; a re-authorized
+    expire-early hold keeps the 5 minute validity. Errors are RFC 9457 problem
+    details (application/problem+json) whose type is /problems/<slug>. No
+    authentication.
+servers:
+  - url: http://localhost:8080
+tags:
+  - name: Tokens
+    description: Hosted-fields stand-in that issues payment-method tokens.
+  - name: Authorizations
+    description: Holds and the captures, refunds and releases taken against them.
+  - name: Platform
+    description: Liveness and readiness.
+paths:
+  /tokens:
+    post:
+      tags: [Tokens]
+      operationId: issueToken
+      summary: Issue a payment-method token for a test scenario
+      description: >-
+        IssueToken. The body names the scenario (approve, decline, timeout,
+        expire-early; empty means approve). The same Idempotency-Key returns the
+        same token.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRequest'
+            examples:
+              decline:
+                summary: A token that is always declined
+                value: {scenario: decline}
+              expireEarly:
+                summary: A token whose holds last five minutes
+                value: {scenario: expire-early}
+      responses:
+        '201':
+          description: The token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Token'
+              example: {token: tok_expire-early_3fa85f64c1d2, scenario: expire-early}
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /authorizations:
+    post:
+      tags: [Authorizations]
+      operationId: authorize
+      summary: Place a hold on the payment method a token stands for
+      description: >-
+        Authorize. approve and expire-early tokens answer 201 with the hold id and
+        its expiry; a decline token answers 402 payment-declined with the decline
+        code (final); a timeout token answers 504 provider-timeout after a short
+        delay (transient, retry with the same key). A card number in place of a
+        token is a 422.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AuthorizeRequest'
+            example: {amountMinor: 10000, currency: BRL, paymentMethodToken: tok_approve, reference: cs-1}
+      responses:
+        '201':
+          description: The hold.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Hold'
+              example: {id: hold_3fa85f64c1d2, expiresAt: '2026-11-02T09:00:00Z', amountMinor: 10000, currency: BRL}
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '402':
+          description: payment-declined; the code is an extension member (CARD_DECLINED).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example: {type: /problems/payment-declined, title: The payment provider declined the authorization, status: 402, code: CARD_DECLINED}
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '504':
+          description: provider-timeout (the timeout scenario).
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+  /authorizations/{id}:
+    get:
+      tags: [Authorizations]
+      operationId: getAuthorization
+      summary: Read a hold with its captures and refunds
+      description: GetAuthorization. A test aid; the real provider shows the same in its dashboard.
+      parameters:
+        - $ref: '#/components/parameters/HoldId'
+      responses:
+        '200':
+          description: The hold.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HoldDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /authorizations/{id}/void:
+    post:
+      tags: [Authorizations]
+      operationId: voidAuthorization
+      summary: Release the whole remaining hold
+      description: Void. An already voided, fully captured or superseded hold is illegal-transition.
+      parameters:
+        - $ref: '#/components/parameters/HoldId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          $ref: '#/components/responses/Done'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+  /authorizations/{id}/reauthorize:
+    post:
+      tags: [Authorizations]
+      operationId: reauthorize
+      summary: Replace the hold by a fresh one of the given amount
+      description: >-
+        Reauthorize. The old hold becomes SUPERSEDED and the answer is the NEW
+        hold (new id, new expiry). The scenario of the token is kept, so an
+        expire-early hold is renewed for another five minutes.
+      parameters:
+        - $ref: '#/components/parameters/HoldId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        $ref: '#/components/requestBodies/Amount'
+      responses:
+        '201':
+          description: The new hold.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Hold'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /authorizations/{id}/reduce:
+    post:
+      tags: [Authorizations]
+      operationId: reduceAuthorization
+      summary: Lower the remaining hold (partial release)
+      description: >-
+        Reduce. amountMinor is the new REMAINING hold; it never raises it
+        (not-a-reduction, 422). Reducing to zero closes the hold.
+      parameters:
+        - $ref: '#/components/parameters/HoldId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        $ref: '#/components/requestBodies/Amount'
+      responses:
+        '200':
+          $ref: '#/components/responses/Done'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /authorizations/{id}/captures:
+    post:
+      tags: [Authorizations]
+      operationId: capture
+      summary: Take money from the hold
+      description: >-
+        Capture. Partial captures accumulate; over-capture and hold-expired are
+        409.
+      parameters:
+        - $ref: '#/components/parameters/HoldId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        $ref: '#/components/requestBodies/Amount'
+      responses:
+        '201':
+          $ref: '#/components/responses/Movement'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /authorizations/{id}/refunds:
+    post:
+      tags: [Authorizations]
+      operationId: refund
+      summary: Return captured money
+      description: Refund. Refunds never exceed the captured total (over-refund, 409).
+      parameters:
+        - $ref: '#/components/parameters/HoldId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        $ref: '#/components/requestBodies/Amount'
+      responses:
+        '201':
+          $ref: '#/components/responses/Movement'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+  /healthz:
+    get:
+      tags: [Platform]
+      operationId: healthz
+      summary: Liveness
+      description: Always 200 while the process runs.
+      responses:
+        '200':
+          description: Alive.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+  /readyz:
+    get:
+      tags: [Platform]
+      operationId: readyz
+      summary: Readiness
+      description: 200 while Postgres answers a ping and the process is not draining; 503 otherwise.
+      responses:
+        '200':
+          description: Ready.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+        '503':
+          description: Draining (status not_ready) or a dependency is unavailable (problem dependency-unavailable).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Status'
+components:
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: A repeated key returns the stored answer of the first call; the same key with another request is idempotency-key-reused (422).
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 128
+    HoldId:
+      name: id
+      in: path
+      required: true
+      description: The hold id returned by authorize or reauthorize.
+      schema:
+        type: string
+  requestBodies:
+    Amount:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/AmountRequest'
+          example: {amountMinor: 2500}
+  responses:
+    Done:
+      description: The operation took effect.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Done'
+    Movement:
+      description: The capture or refund.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Movement'
+    BadRequest:
+      description: malformed-request or idempotency-key-required.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    NotFound:
+      description: not-found.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Conflict:
+      description: illegal-transition, over-capture, over-refund or hold-expired.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+    Unprocessable:
+      description: validation-failed, not-a-reduction or idempotency-key-reused.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+  schemas:
+    Problem:
+      type: object
+      description: RFC 9457 problem details.
+      required: [type, title, status]
+      properties:
+        type:
+          type: string
+          format: uri-reference
+          description: Problem type slug, for example over-refund.
+        title:
+          type: string
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+        detail:
+          type: string
+        instance:
+          type: string
+          format: uri-reference
+        code:
+          type: string
+          description: The provider decline code (payment-declined only).
+          example: CARD_DECLINED
+    Status:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          example: ready
+    Scenario:
+      type: string
+      description: The deterministic behaviour a token selects.
+      enum: [approve, decline, timeout, expire-early]
+    TokenRequest:
+      type: object
+      properties:
+        scenario:
+          $ref: '#/components/schemas/Scenario'
+    Token:
+      type: object
+      required: [token, scenario]
+      properties:
+        token:
+          type: string
+          description: tok_<scenario>_<suffix>.
+        scenario:
+          $ref: '#/components/schemas/Scenario'
+    AuthorizeRequest:
+      type: object
+      required: [amountMinor, currency, paymentMethodToken, reference]
+      properties:
+        amountMinor:
+          type: integer
+          format: int64
+          minimum: 1
+        currency:
+          type: string
+          pattern: '^[A-Z]{3}$'
+        paymentMethodToken:
+          type: string
+          description: A PSP token; never a card number.
+        reference:
+          type: string
+          description: The caller's reference, for example the checkout session id.
+    AmountRequest:
+      type: object
+      required: [amountMinor]
+      properties:
+        amountMinor:
+          type: integer
+          format: int64
+          minimum: 0
+          description: The amount in minor units; for reduce, the new remaining hold.
+    Hold:
+      type: object
+      required: [id, expiresAt, amountMinor, currency]
+      properties:
+        id:
+          type: string
+        expiresAt:
+          type: string
+          format: date-time
+        amountMinor:
+          type: integer
+          format: int64
+        currency:
+          type: string
+    Movement:
+      type: object
+      required: [id, amountMinor, currency]
+      properties:
+        id:
+          type: string
+        amountMinor:
+          type: integer
+          format: int64
+        currency:
+          type: string
+    Done:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: string
+          description: The hold the operation applied to.
+    HoldDetail:
+      type: object
+      required: [id, status, scenario, reference, currency, heldMinor, capturedMinor, refundedMinor, remainingMinor, expiresAt, createdAt, movements]
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum: [AUTHORIZED, CAPTURED, VOIDED, SUPERSEDED]
+        scenario:
+          $ref: '#/components/schemas/Scenario'
+        reference:
+          type: string
+        currency:
+          type: string
+        heldMinor:
+          type: integer
+          format: int64
+        capturedMinor:
+          type: integer
+          format: int64
+        refundedMinor:
+          type: integer
+          format: int64
+        remainingMinor:
+          type: integer
+          format: int64
+        expiresAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        supersededBy:
+          type: string
+        movements:
+          type: array
+          items:
+            $ref: '#/components/schemas/MovementEntry'
+    MovementEntry:
+      type: object
+      required: [id, kind, amountMinor, at]
+      properties:
+        id:
+          type: string
+        kind:
+          type: string
+          enum: [CAPTURE, REFUND]
+        amountMinor:
+          type: integer
+          format: int64
+        at:
+          type: string
+          format: date-time
