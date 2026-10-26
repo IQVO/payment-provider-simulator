@@ -74,3 +74,16 @@ func TestHoldValidity(t *testing.T) {
 		}
 	}
 }
+
+func TestCardNumberDigitBoundaries(t *testing.T) {
+	for _, pan := range []string{"0000000000000", "9999999999999", "0123456789 0123", "0123456789-0123"} {
+		if _, err := providertoken.ScenarioOf(pan); errors.Is(err, providertoken.ErrUnknownToken) {
+			t.Errorf("%q must be refused as a card number", pan)
+		}
+	}
+	for _, notPan := range []string{"/////////////", ":::::::::::::", "0000000000000x", "!!!!!!!!!!!!!"} {
+		if _, err := providertoken.ScenarioOf(notPan); !errors.Is(err, providertoken.ErrUnknownToken) {
+			t.Errorf("%q is not a card number, got %v", notPan, err)
+		}
+	}
+}

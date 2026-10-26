@@ -143,3 +143,16 @@ func TestRefundBoundedByCaptured(t *testing.T) {
 		t.Fatalf("zero refund err = %v", err)
 	}
 }
+
+func TestCurrencyLetterBoundaries(t *testing.T) {
+	for _, ok := range []string{"AAA", "ZZZ", "AZA"} {
+		if _, err := providerauth.Authorize("h", providertoken.Approve, "r", ok, 1, t0); err != nil {
+			t.Errorf("currency %q must be valid: %v", ok, err)
+		}
+	}
+	for _, bad := range []string{"@AA", "AA[", "A`A", "{AA"} {
+		if _, err := providerauth.Authorize("h", providertoken.Approve, "r", bad, 1, t0); !errors.Is(err, shared.ErrValidation) {
+			t.Errorf("currency %q must be invalid, got %v", bad, err)
+		}
+	}
+}
