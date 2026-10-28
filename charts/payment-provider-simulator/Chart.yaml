@@ -1,0 +1,12 @@
+apiVersion: v2
+name: payment-provider-simulator
+description: Payment Provider Simulator - a Go stand-in for the external payment provider (tokenize, authorize, capture, void, refund, re-authorize, reduce) with deterministic scenario-token outcomes; publishes and consumes no events (ADR 0002 A16), so there is no Kafka
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+home: https://github.com/IQVO/payment-provider-simulator
+keywords:
+  - ddd
+  - hexagonal-architecture
+  - retail-network
+  - golang

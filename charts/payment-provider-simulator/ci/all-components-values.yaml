@@ -1,0 +1,25 @@
+# Used by `helm lint` / `ct lint`: every optional value and component set at
+# once (api + HPA + gateway + ingress + every optional config.* value), against
+# a dummy existingSecret so the file stays self-contained.
+database:
+  existingSecret: "pps-db"
+  existingSecretKey: "DATABASE_URL"
+  migrationsExistingSecretKey: "MIGRATIONS_DATABASE_URL"
+config:
+  logLevel: "debug"
+  providerTimeoutDelay: "1500ms"
+  shutdownDrainDelay: "5s"
+autoscaling:
+  api:
+    enabled: true
+ingress:
+  enabled: true
+gatewayApi:
+  enabled: true
+  parentRefs:
+    - name: warehouse-gateway
+      namespace: kong
+      sectionName: http
+  hosts:
+    - path: /api/payment-provider-simulator
+      pathType: PathPrefix
