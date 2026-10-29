@@ -7,6 +7,9 @@ Go stand-in for the external payment provider (own Postgres): tokenize (hosted-f
 The design lives in [warehouse-docs](https://iqvo.github.io/warehouse-docs/storefront/) `storefront/model/model.yaml`; the assumptions made while building are in `docs/adr/0002-payment-provider-simulator-assumptions.md`; the contract is `apis/openapi.yaml`.
 
 Runtime: Go, hexagonal (domain `providerauth` / `providertoken`, application ports and use cases, chi HTTP, Postgres adapter with embedded migrations), real PostgreSQL only (`DATABASE_URL` is mandatory). The simulator publishes and consumes **no** events (ADR 0002 A16), so there is no Kafka dependency.
+Observability (ADR 0003, the fleet standard): OTLP traces and metrics, `OTEL_SERVICE_NAME` (payment-provider-simulator),
+`OTEL_EXPORTER_OTLP_ENDPOINT`, `SERVICE_VERSION`, `ENVIRONMENT`, `LOG_LEVEL`; the request-duration histogram comes from
+the chi middleware.
 
 ## Contract in one screen
 

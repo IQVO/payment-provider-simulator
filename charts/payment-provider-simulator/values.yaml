@@ -124,6 +124,18 @@ database:
 # any *_MODE variable (this service has no mode: Postgres is the only runtime),
 # any *_CONSUMER_GROUP variable (this service runs no consumer) and any
 # variable the chart renders itself.
+# Observability (the fleet standard): OTLP traces and metrics from the api.
+# SERVICE_VERSION is the image tag (appVersion when empty); ENVIRONMENT comes
+# from `environment` below. extraEnv may not set these names.
+otel:
+  enabled: true
+  endpoint: "otel-collector.observability.svc.cluster.local:4317"
+  serviceName: "payment-provider-simulator"
+
+# ENVIRONMENT of the api: deployment.environment.name on every span, metric
+# and log line.
+environment: "production"
+
 extraEnv: []
 
 # The Postgres dial and the migrations at boot run inside a bounded retry

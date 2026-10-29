@@ -1,6 +1,8 @@
 package main
 
 import (
+	"github.com/IQVO/payment-provider-simulator/internal/adapters/outbound/telemetry"
+
 	"errors"
 	"log/slog"
 	"os"
@@ -73,7 +75,9 @@ func newLogger(level string) *slog.Logger {
 	default:
 		lvl = slog.LevelInfo
 	}
-	return slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: lvl}))
+	// WithTraceContext stamps trace_id/span_id on records written with a
+	// span-carrying context (ADR 0003).
+	return slog.New(telemetry.WithTraceContext(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: lvl})))
 }
 
 func getenv(key, fallback string) string {
