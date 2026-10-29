@@ -56,6 +56,14 @@ func run(ctx context.Context) error {
 	logger := newLogger(getenv("LOG_LEVEL", "info"))
 	slog.SetDefault(logger)
 
+	// Telemetry comes up before the router is built (otelchimetric binds the
+	// global MeterProvider at construction) and is flushed LAST.
+	flushTelemetry, err := startTelemetry(logger)
+	if err != nil {
+		return err
+	}
+	defer flushTelemetry()
+
 	rt, err := loadRuntime(os.Getenv)
 	if err != nil {
 		return err
@@ -70,7 +78,7 @@ func run(ctx context.Context) error {
 		inboundhttp.Dependency{Name: "postgres", Check: pool.Ping})
 	httpServer := &http.Server{
 		Addr:              getenv("HTTP_ADDR", ":8080"),
-		Handler:           inboundhttp.NewRouter(buildServer(pool, timeoutDelay(os.Getenv("PROVIDER_TIMEOUT_DELAY"), logger), readiness)),
+		Handler:           inboundhttp.NewRouter(buildServer(pool, timeoutDelay(os.Getenv("PROVIDER_TIMEOUT_DELAY"), logger), readiness), logger, getenv("OTEL_SERVICE_NAME", "payment-provider-simulator")),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 	return serveUntilSignal(ctx, logger, httpServer, readiness)
