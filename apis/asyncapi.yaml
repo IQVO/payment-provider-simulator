@@ -1,0 +1,22 @@
+asyncapi: 3.0.0
+info:
+  title: payment-provider-simulator Domain Events
+  version: 1.0.0
+  contact:
+    name: payment-provider-simulator maintainers
+    url: https://github.com/IQVO/payment-provider-simulator
+    email: payment-provider-simulator@iqvo.example.com
+  license:
+    name: UNLICENSED
+  tags:
+  - name: payment-provider-simulator
+    description: The payment-provider-simulator bounded context (storefront domain), a stand-in for an external payment provider.
+  description: |-
+    The payment-provider-simulator publishes NO events and consumes NO events: it is a request/response stand-in for an external payment provider (see apis/openapi.yaml and docs/adr/0002-payment-provider-simulator-assumptions.md). This document exists so the contract tooling has one entry per service; it declares no channels and no operations. The CloudEvents helper package and the Kafka writer of the harness stay in the tree unused and no producer is wired.
+servers:
+  production:
+    host: '{brokers}'
+    protocol: kafka
+    description: Declared for completeness only; this service never connects to Kafka.
+channels: {}
+operations: {}
