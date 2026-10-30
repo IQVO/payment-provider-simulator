@@ -1,5 +1,7 @@
 # payment-provider-simulator
 
+[![CI](https://github.com/IQVO/payment-provider-simulator/actions/workflows/ci.yml/badge.svg?branch=develop)](https://github.com/IQVO/payment-provider-simulator/actions/workflows/ci.yml?query=branch%3Adevelop) [![coverage gate](https://img.shields.io/badge/coverage%20gate-90%25-brightgreen)](https://github.com/IQVO/payment-provider-simulator/blob/develop/Makefile) [![Go](https://img.shields.io/badge/go-1.27.3-00ADD8?logo=go&logoColor=white)](https://github.com/IQVO/payment-provider-simulator/blob/develop/go.mod) [![release](https://img.shields.io/github/v/release/IQVO/payment-provider-simulator?sort=semver)](https://github.com/IQVO/payment-provider-simulator/releases) [![docs](https://img.shields.io/badge/docs-iqvo.github.io-blue)](https://iqvo.github.io/payment-provider-simulator/) [![license](https://img.shields.io/badge/license-MIT-blue)](https://github.com/IQVO/payment-provider-simulator/blob/develop/LICENSE)
+
 Storefront (e-commerce) domain of the retail-network organisation, bounded context **Payment Provider Simulator** (Generic, storefront tier).
 
 Go stand-in for the external payment provider (own Postgres): tokenize (hosted-fields stand-in), authorize, capture, void, refund, re-authorize and reduce (partial release) with deterministic outcomes per test token. The HTTP contract is the one customer-payments documents in its ADR 0002 assumption A12; swapping the simulator for a real PSP changes nothing in the storefront (only `PAYMENT_PROVIDER_URL`).
