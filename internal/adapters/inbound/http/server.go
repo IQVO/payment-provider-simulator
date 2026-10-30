@@ -5,6 +5,14 @@
 package http
 
 import (
+	"log/slog"
+
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/riandyrn/otelchi"
+	otelchimetric "github.com/riandyrn/otelchi/metric"
+
+	"github.com/IQVO/payment-provider-simulator/internal/adapters/inbound/requestlog"
+
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -28,8 +36,24 @@ type Server struct {
 }
 
 // NewRouter builds the chi router for every endpoint of apis/openapi.yaml.
-func NewRouter(s *Server) http.Handler {
+//
+// The middleware order is the fleet observability standard: RequestID,
+// otelchi (a server span named after the route pattern), the
+// request-duration histogram, RequestLogger, Recoverer; rejectNUL stays
+// after these. telemetry.Setup must have run before this call.
+func NewRouter(s *Server, logger *slog.Logger, serviceName string) http.Handler {
+	if logger == nil {
+		logger = slog.Default()
+	}
+	if serviceName == "" {
+		serviceName = "payment-provider-simulator"
+	}
 	r := chi.NewRouter()
+	r.Use(middleware.RequestID)
+	r.Use(otelchi.Middleware(serviceName, otelchi.WithChiRoutes(r)))
+	r.Use(otelchimetric.NewServerRequestDuration(otelchimetric.NewBaseConfig(serviceName)))
+	r.Use(requestlog.RequestLogger(logger))
+	r.Use(middleware.Recoverer)
 	// A NUL (U+0000) in the path, the query or a body is a uniform client error,
 	// never a Postgres 22021 -> 500.
 	r.Use(rejectNUL)

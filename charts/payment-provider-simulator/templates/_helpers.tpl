@@ -99,7 +99,7 @@ consumer to group), and none of the variables the chart renders itself (the
 same variable is never set twice).
 */}}
 {{- define "payment-provider-simulator.requireCleanExtraEnv" -}}
-{{- $owned := list "HTTP_ADDR" "LOG_LEVEL" "DATABASE_URL" "MIGRATIONS_DATABASE_URL" "PROVIDER_TIMEOUT_DELAY" "SHUTDOWN_DRAIN_DELAY" -}}
+{{- $owned := list "HTTP_ADDR" "LOG_LEVEL" "DATABASE_URL" "MIGRATIONS_DATABASE_URL" "PROVIDER_TIMEOUT_DELAY" "SHUTDOWN_DRAIN_DELAY" "OTEL_EXPORTER_OTLP_ENDPOINT" "OTEL_SERVICE_NAME" "SERVICE_VERSION" "ENVIRONMENT" -}}
 {{- range .Values.extraEnv -}}
 {{- $name := toString .name -}}
 {{- if hasSuffix "_MODE" $name -}}

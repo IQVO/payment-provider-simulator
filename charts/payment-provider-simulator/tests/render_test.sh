@@ -62,6 +62,14 @@ for var in "${api_vars[@]}" DATABASE_URL MIGRATIONS_DATABASE_URL \
   HTTP_ADDR LOG_LEVEL PROVIDER_TIMEOUT_DELAY SHUTDOWN_DRAIN_DELAY; do
   grep -q "name: $var\$" <<<"$full_deployment" || fail "the api Deployment does not render $var, which cmd/api reads"
 done
+# The observability contract renders from the otel block.
+tp() { grep -A1 "name: $1\$" <<<"$full_deployment" | grep -m1 'value:' | sed -E 's/.*value: "?//; s/"$//'; }
+[[ "$(tp OTEL_EXPORTER_OTLP_ENDPOINT)" == "otel-collector.observability.svc.cluster.local:4317" ]] \
+  || fail "OTEL_EXPORTER_OTLP_ENDPOINT is not rendered from otel.endpoint"
+[[ "$(tp OTEL_SERVICE_NAME)" == "payment-provider-simulator" ]] \
+  || fail "OTEL_SERVICE_NAME is not rendered from otel.serviceName"
+[[ -n "$(tp SERVICE_VERSION)" ]] || fail "SERVICE_VERSION must render (image tag or appVersion)"
+[[ -n "$(tp ENVIRONMENT)" ]] || fail "ENVIRONMENT must render from .Values.environment"
 
 # Every key the ConfigMap renders is a variable cmd/api reads (no dead keys), and
 # the ConfigMap never carries a DSN.

@@ -1,6 +1,8 @@
 package http_test
 
 import (
+	"log/slog"
+
 	"encoding/json"
 	"io"
 	"net/http"
@@ -34,7 +36,7 @@ func newRig(t *testing.T, readiness *inbound.Readiness) *rig {
 		GetAuthorization: usecases.GetAuthorization{Deps: d}, Void: usecases.Void{Deps: d},
 		Reauthorize: usecases.Reauthorize{Deps: d}, Reduce: usecases.Reduce{Deps: d},
 		Capture: usecases.Capture{Deps: d}, Refund: usecases.Refund{Deps: d}, Readiness: readiness,
-	})
+	}, slog.Default(), "")
 	srv := httptest.NewServer(h)
 	t.Cleanup(srv.Close)
 	return &rig{srv: srv, clock: c}
