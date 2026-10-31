@@ -1,6 +1,8 @@
 package features_test
 
 import (
+	"log/slog"
+
 	"encoding/json"
 	"io"
 	"net/http"
@@ -43,7 +45,7 @@ func newWorld() *world {
 		Reauthorize: usecases.Reauthorize{Deps: d}, Reduce: usecases.Reduce{Deps: d},
 		Capture: usecases.Capture{Deps: d}, Refund: usecases.Refund{Deps: d}, Readiness: inbound.NewReadiness(0, 0),
 	}
-	return &world{clock: clock, srv: httptest.NewServer(inbound.NewRouter(api))}
+	return &world{clock: clock, srv: httptest.NewServer(inbound.NewRouter(api, slog.Default(), ""))}
 }
 
 // do sends one request, recording status and body; key "" on a POST sends a
