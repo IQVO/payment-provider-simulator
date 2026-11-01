@@ -18,7 +18,7 @@ func TestIssueTokenNamesItsScenario(t *testing.T) {
 		t.Fatalf("answer = %+v, err %v", a, err)
 	}
 	again, _ := usecases.IssueToken{Deps: r.deps}.Execute(context.Background(), usecases.IssueTokenInput{Key: "k", Scenario: "decline"})
-	if again != a {
+	if again != replayOf(a) {
 		t.Fatalf("same key must return the same token: %+v vs %+v", again, a)
 	}
 	if _, err := (usecases.IssueToken{Deps: r.deps}).Execute(context.Background(), usecases.IssueTokenInput{Key: "k", Scenario: "approve"}); !errors.Is(err, usecases.ErrIdempotencyKeyReused) {
@@ -38,7 +38,7 @@ func TestAuthorizeApproveIsIdempotent(t *testing.T) {
 	if a.Kind != views.KindHold || a.ID != "hold_1" || a.AmountMinor != 1000 || !a.ExpiresAt.Equal(t0.Add(7*24*time.Hour)) {
 		t.Fatalf("answer = %+v", a)
 	}
-	if b := r.authorize(t, "k1", "tok_approve", 1000); b != a {
+	if b := r.authorize(t, "k1", "tok_approve", 1000); b != replayOf(a) {
 		t.Fatalf("replay = %+v, want %+v", b, a)
 	}
 	if c := r.authorize(t, "k2", "tok_approve", 1000); c.ID == a.ID {
@@ -57,7 +57,7 @@ func TestAuthorizeDeclineIsFinalAndStored(t *testing.T) {
 	if a.Kind != views.KindDeclined || a.Code != "CARD_DECLINED" {
 		t.Fatalf("answer = %+v", a)
 	}
-	if b := r.authorize(t, "k", "tok_decline_x", 500); b != a {
+	if b := r.authorize(t, "k", "tok_decline_x", 500); b != replayOf(a) {
 		t.Fatalf("replay = %+v", b)
 	}
 	_, err := usecases.Authorize{Deps: r.deps}.Execute(context.Background(), usecases.AuthorizeInput{

@@ -61,14 +61,18 @@ func NewRouter(s *Server, logger *slog.Logger, serviceName string) http.Handler 
 	r.Get("/healthz", handleHealthz)
 	r.Get("/readyz", s.handleReadyz)
 
-	r.Post("/tokens", s.handleIssueToken)
-	r.Post("/authorizations", s.handleAuthorize)
 	r.Get("/authorizations/{id}", s.handleGetAuthorization)
-	r.Post("/authorizations/{id}/void", s.handleVoid)
-	r.Post("/authorizations/{id}/reauthorize", s.handleReauthorize)
-	r.Post("/authorizations/{id}/reduce", s.handleReduce)
-	r.Post("/authorizations/{id}/captures", s.handleCapture)
-	r.Post("/authorizations/{id}/refunds", s.handleRefund)
+	// Every POST is keyed (fleet REST guideline section 2).
+	r.Group(func(r chi.Router) {
+		r.Use(requireIdempotencyKey)
+		r.Post("/tokens", s.handleIssueToken)
+		r.Post("/authorizations", s.handleAuthorize)
+		r.Post("/authorizations/{id}/voids", s.handleVoid)
+		r.Post("/authorizations/{id}/reauthorizations", s.handleReauthorize)
+		r.Post("/authorizations/{id}/reductions", s.handleReduce)
+		r.Post("/authorizations/{id}/captures", s.handleCapture)
+		r.Post("/authorizations/{id}/refunds", s.handleRefund)
+	})
 	return r
 }
 

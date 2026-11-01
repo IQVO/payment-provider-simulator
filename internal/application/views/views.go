@@ -28,6 +28,8 @@ type Answer struct {
 	Token       string    `json:"token,omitempty"`
 	Scenario    string    `json:"scenario,omitempty"`
 	Code        string    `json:"code,omitempty"`
+	// Replayed is true on the answer of a replay; never stored.
+	Replayed bool `json:"-"`
 }
 
 // Hold is the read model of GET /authorizations/{id}.

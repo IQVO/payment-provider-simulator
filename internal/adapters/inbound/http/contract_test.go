@@ -40,7 +40,7 @@ func TestAuthorizeIsIdempotentOverHTTP(t *testing.T) {
 	if _, again := authorizeWith(t, r, "k", "tok_approve"); again["id"] != first["id"] {
 		t.Fatalf("replay = %v", again)
 	}
-	if status, out := r.post(t, "/authorizations", "k", `{"amountMinor":5,"currency":"EUR","paymentMethodToken":"tok_approve","reference":"cs-1"}`); status != http.StatusUnprocessableEntity || out["type"] != "/problems/idempotency-key-reused" {
+	if status, out := r.post(t, "/authorizations", "k", `{"amountMinor":5,"currency":"EUR","paymentMethodToken":"tok_approve","reference":"cs-1"}`); status != http.StatusConflict || out["type"] != "/problems/idempotency-key-reused" {
 		t.Fatalf("reused key = %d %v", status, out)
 	}
 }
