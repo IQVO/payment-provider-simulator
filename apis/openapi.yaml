@@ -59,6 +59,9 @@ paths:
       responses:
         '201':
           description: The token.
+          headers:
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
           content:
             application/json:
               schema:
@@ -66,6 +69,8 @@ paths:
               example: {token: tok_expire-early_3fa85f64c1d2, scenario: expire-early}
         '400':
           $ref: '#/components/responses/BadRequest'
+        '409':
+          $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/Unprocessable'
   /authorizations:
@@ -91,6 +96,9 @@ paths:
       responses:
         '201':
           description: The hold.
+          headers:
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
           content:
             application/json:
               schema:
@@ -105,6 +113,8 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
               example: {type: /problems/payment-declined, title: The payment provider declined the authorization, status: 402, code: CARD_DECLINED}
+        '409':
+          $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/Unprocessable'
         '504':
@@ -130,7 +140,7 @@ paths:
                 $ref: '#/components/schemas/HoldDetail'
         '404':
           $ref: '#/components/responses/NotFound'
-  /authorizations/{id}/void:
+  /authorizations/{id}/voids:
     post:
       tags: [Authorizations]
       operationId: voidAuthorization
@@ -142,11 +152,13 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/Done'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
-  /authorizations/{id}/reauthorize:
+  /authorizations/{id}/reauthorizations:
     post:
       tags: [Authorizations]
       operationId: reauthorize
@@ -163,17 +175,22 @@ paths:
       responses:
         '201':
           description: The new hold.
+          headers:
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Hold'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/Unprocessable'
-  /authorizations/{id}/reduce:
+  /authorizations/{id}/reductions:
     post:
       tags: [Authorizations]
       operationId: reduceAuthorization
@@ -189,6 +206,8 @@ paths:
       responses:
         '200':
           $ref: '#/components/responses/Done'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
@@ -211,6 +230,8 @@ paths:
       responses:
         '201':
           $ref: '#/components/responses/Movement'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
@@ -231,6 +252,8 @@ paths:
       responses:
         '201':
           $ref: '#/components/responses/Movement'
+        '400':
+          $ref: '#/components/responses/BadRequest'
         '404':
           $ref: '#/components/responses/NotFound'
         '409':
@@ -275,7 +298,11 @@ components:
       name: Idempotency-Key
       in: header
       required: true
-      description: A repeated key returns the stored answer of the first call; the same key with another request is idempotency-key-reused (422).
+      description: >-
+        A client-generated UUID per logical submit (a retry reuses it). The key is
+        global: a repeated key with the same method, path and body replays the
+        stored answer with Idempotency-Replayed true; the same key with another
+        request is 409 idempotency-key-reused.
       schema:
         type: string
         minLength: 1
@@ -287,6 +314,12 @@ components:
       description: The hold id returned by authorize or reauthorize.
       schema:
         type: string
+  headers:
+    IdempotencyReplayed:
+      description: Present, with the value true, only when the answer is the stored replay of an earlier request with the same Idempotency-Key.
+      schema:
+        type: string
+        enum: ['true']
   requestBodies:
     Amount:
       required: true
@@ -298,22 +331,32 @@ components:
   responses:
     Done:
       description: The operation took effect.
+      headers:
+        Idempotency-Replayed:
+          $ref: '#/components/headers/IdempotencyReplayed'
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Done'
     Movement:
       description: The capture or refund.
+      headers:
+        Idempotency-Replayed:
+          $ref: '#/components/headers/IdempotencyReplayed'
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Movement'
     BadRequest:
-      description: malformed-request or idempotency-key-required.
+      description: malformed-request, idempotency-key-required or idempotency-key-invalid.
       content:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/Problem'
+          examples:
+            idempotencyKeyRequired:
+              summary: The Idempotency-Key header is missing
+              value: {type: /problems/idempotency-key-required, title: Idempotency-Key header is required, status: 400}
     NotFound:
       description: not-found.
       content:
@@ -321,13 +364,20 @@ components:
           schema:
             $ref: '#/components/schemas/Problem'
     Conflict:
-      description: illegal-transition, over-capture, over-refund or hold-expired.
+      description: >-
+        idempotency-key-reused (the key was first used with a different method,
+        path or body), illegal-transition, over-capture, over-refund or
+        hold-expired.
       content:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/Problem'
+          examples:
+            idempotencyKeyReused:
+              summary: The Idempotency-Key was first used with a different request
+              value: {type: /problems/idempotency-key-reused, title: Idempotency-Key was already used with a different request, status: 409}
     Unprocessable:
-      description: validation-failed, not-a-reduction or idempotency-key-reused.
+      description: validation-failed or not-a-reduction.
       content:
         application/problem+json:
           schema:
@@ -407,7 +457,7 @@ components:
           type: integer
           format: int64
           minimum: 0
-          description: The amount in minor units; for reduce, the new remaining hold.
+          description: The amount in minor units; for a reduction, the new remaining hold.
     Hold:
       type: object
       required: [id, expiresAt, amountMinor, currency]

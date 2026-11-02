@@ -94,15 +94,15 @@ DATABASE_URL="postgres://user:pass@localhost:5432/payment_provider?sslmode=disab
 
 ## API
 
-Contract: [`apis/openapi.yaml`](apis/openapi.yaml). Every POST carries an `Idempotency-Key`; the same key returns the same answer. Bodies are JSON, amounts are integer minor units, only PSP tokens travel, never a card number.
+Contract: [`apis/openapi.yaml`](apis/openapi.yaml). Every POST carries an `Idempotency-Key` (missing: `400 idempotency-key-required`); the key is global, so a replay of the same request returns the stored answer with `Idempotency-Replayed: true` and the same key with another method, path or body is `409 idempotency-key-reused` ([ADR 0004](docs/adr/0004-adopt-the-fleet-rest-api-guideline.md)). Bodies are JSON, amounts are integer minor units, only PSP tokens travel, never a card number.
 
 | Route | Purpose |
 | --- | --- |
 | `POST /tokens` `{scenario}` | issue a scenario token (`tok_<scenario>_<suffix>`) |
 | `POST /authorizations` `{amountMinor, currency, paymentMethodToken, reference}` | place a hold: `201 {id, expiresAt}` or `402` decline |
-| `POST /authorizations/{id}/void` | release the remaining hold |
-| `POST /authorizations/{id}/reauthorize` `{amountMinor}` | replace by a new hold (`201`, new id and expiry) |
-| `POST /authorizations/{id}/reduce` `{amountMinor}` | lower the REMAINING hold (partial release) |
+| `POST /authorizations/{id}/voids` | release the remaining hold |
+| `POST /authorizations/{id}/reauthorizations` `{amountMinor}` | replace by a new hold (`201`, new id and expiry) |
+| `POST /authorizations/{id}/reductions` `{amountMinor}` | lower the REMAINING hold (partial release) |
 | `POST /authorizations/{id}/captures` `{amountMinor}` | capture (`201 {id}`) |
 | `POST /authorizations/{id}/refunds` `{amountMinor}` | refund captured money (`201 {id}`) |
 | `GET /authorizations/{id}` | read a hold (test aid) |

@@ -14,13 +14,13 @@ func registerHoldSteps(sc *godog.ScenarioContext, get func() *world) {
 			hold = w.holdID
 		}
 		body := fmt.Sprintf(`{"amountMinor":%d}`, amount)
-		if sub == "void" {
+		if sub == "voids" {
 			body = `{}`
 		}
 		if err := w.do("POST", "/authorizations/"+hold+"/"+sub, "", body); err != nil {
 			return err
 		}
-		if sub == "reauthorize" {
+		if sub == "reauthorizations" {
 			if id, ok := w.body["id"].(string); ok {
 				w.newHold = id
 			}
@@ -31,9 +31,9 @@ func registerHoldSteps(sc *godog.ScenarioContext, get func() *world) {
 	sc.Step(`^I capture (\d+) on the hold "([^"]*)"$`, func(n int, h string) error { return op("captures", n, h) })
 	sc.Step(`^I capture (\d+) on the new hold$`, func(n int) error { return op("captures", n, get().newHold) })
 	sc.Step(`^I refund (\d+)$`, func(n int) error { return op("refunds", n, "") })
-	sc.Step(`^I reduce the hold to (\d+)$`, func(n int) error { return op("reduce", n, "") })
-	sc.Step(`^I reauthorize the hold for (\d+)$`, func(n int) error { return op("reauthorize", n, "") })
-	sc.Step(`^I void the hold$`, func() error { return op("void", 0, "") })
+	sc.Step(`^I reduce the hold to (\d+)$`, func(n int) error { return op("reductions", n, "") })
+	sc.Step(`^I reauthorize the hold for (\d+)$`, func(n int) error { return op("reauthorizations", n, "") })
+	sc.Step(`^I void the hold$`, func() error { return op("voids", 0, "") })
 	sc.Step(`^(\d+) minutes? pass(?:es)?$`, func(n int) error { return get().advance(n) })
 	sc.Step(`^the hold shows remaining (\d+)$`, func(n int) error { return get().holdField("remainingMinor", float64(n)) })
 	sc.Step(`^the old hold is "([^"]*)"$`, func(s string) error { return get().holdField("status", s) })

@@ -13,8 +13,9 @@ reading is recorded here as an assumption.
 - **A1** The provider contract is A12 verbatim: every POST carries an `Idempotency-Key`, the same key returns the
   same answer, bodies are JSON, amounts are integer minor units, only PSP tokens travel. A missing key is 400
   `idempotency-key-required`.
-- **A2** Idempotency is scoped by (operation, key). The first request fingerprint is stored with the answer; the same
-  key with another request is 422 `idempotency-key-reused`. The claim, the effect and the stored answer commit in ONE
+- **A2** Idempotency keys are global (ADR 0004; was scoped by (operation, key)). The first request fingerprint
+  (operation + inputs) is stored with the answer; the same key with another request is 409 `idempotency-key-reused`
+  (was 422 before ADR 0004), and a replay carries `Idempotency-Replayed: true`. The claim, the effect and the stored answer commit in ONE
   Postgres transaction, and a concurrent duplicate waits on the unique index, so an effect never happens twice. A
   failed command rolls its claim back, so its key stays usable; successes and declines are replayed byte for byte.
 - **A3** Tokens are self-describing: `tok_<scenario>[_<suffix>]` with scenario one of `approve`, `decline`,
