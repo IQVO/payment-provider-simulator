@@ -20,8 +20,11 @@ info:
     short delay (at most 2 s). expire-early - authorizes, the hold lasts 5
     minutes, so re-authorization before expiry is testable; a re-authorized
     expire-early hold keeps the 5 minute validity. Errors are RFC 9457 problem
-    details (application/problem+json) whose type is /problems/<slug>. No
-    authentication.
+    details (application/problem+json) whose type is /problems/<slug>: malformed-request,
+    idempotency-key-required, idempotency-key-invalid, resource-not-found (a NUL in the path),
+    not-found, payment-declined, validation-failed, not-a-reduction, idempotency-key-reused,
+    illegal-transition, over-capture, over-refund, hold-expired, provider-timeout,
+    dependency-unavailable, internal-error. No authentication.
 servers:
   - url: http://localhost:8080
 tags:
@@ -38,8 +41,8 @@ paths:
       operationId: issueToken
       summary: Issue a payment-method token for a test scenario
       description: >-
-        IssueToken. The body names the scenario (approve, decline, timeout,
-        expire-early; empty means approve). The same Idempotency-Key returns the
+        IssueToken. The body is optional; it names the scenario (approve, decline,
+        timeout, expire-early; absent or empty means approve). The same Idempotency-Key returns the
         same token.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -82,8 +85,11 @@ paths:
         Authorize. approve and expire-early tokens answer 201 with the hold id and
         its expiry; a decline token answers 402 payment-declined with the decline
         code (final); a timeout token answers 504 provider-timeout after a short
-        delay (transient, retry with the same key). A card number in place of a
-        token is a 422.
+        delay (transient, retry with the same key; the timeout scenario is answered
+        before the Idempotency-Key is claimed, so it is never stored or replayed,
+        and its body is not validated). A card number or an unrecognised token is
+        a 422 validation-failed. A decline token only checks that amountMinor is
+        positive.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -107,18 +113,21 @@ paths:
         '400':
           $ref: '#/components/responses/BadRequest'
         '402':
-          description: payment-declined; the code is an extension member (CARD_DECLINED).
+          description: payment-declined; the code is an extension member (CARD_DECLINED). A stored decline is replayed with the same status.
+          headers:
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayed'
           content:
             application/problem+json:
               schema:
                 $ref: '#/components/schemas/Problem'
-              example: {type: /problems/payment-declined, title: The payment provider declined the authorization, status: 402, code: CARD_DECLINED}
+              example: {type: /problems/payment-declined, title: The payment provider declined the authorization, status: 402, detail: 'the payment method was declined: CARD_DECLINED', instance: /authorizations, code: CARD_DECLINED}
         '409':
           $ref: '#/components/responses/Conflict'
         '422':
           $ref: '#/components/responses/Unprocessable'
         '504':
-          description: provider-timeout (the timeout scenario).
+          description: provider-timeout (the timeout scenario); never replayed, the key is not claimed.
           content:
             application/problem+json:
               schema:
@@ -145,10 +154,18 @@ paths:
       tags: [Authorizations]
       operationId: voidAuthorization
       summary: Release the whole remaining hold
-      description: Void. An already voided, fully captured or superseded hold is illegal-transition.
+      description: Void. A hold that is not AUTHORIZED (voided, fully captured or superseded) is 409 illegal-transition.
       parameters:
         - $ref: '#/components/parameters/HoldId'
         - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: false
+        description: No body is expected; an empty body or an empty object is accepted, any member is 400 malformed-request.
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
       responses:
         '200':
           $ref: '#/components/responses/Done'
@@ -166,7 +183,8 @@ paths:
       description: >-
         Reauthorize. The old hold becomes SUPERSEDED and the answer is the NEW
         hold (new id, new expiry). The scenario of the token is kept, so an
-        expire-early hold is renewed for another five minutes.
+        expire-early hold is renewed for another five minutes. amountMinor must be
+        positive (422); a hold that is not AUTHORIZED is 409 illegal-transition.
       parameters:
         - $ref: '#/components/parameters/HoldId'
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -196,8 +214,10 @@ paths:
       operationId: reduceAuthorization
       summary: Lower the remaining hold (partial release)
       description: >-
-        Reduce. amountMinor is the new REMAINING hold; it never raises it
-        (not-a-reduction, 422). Reducing to zero closes the hold.
+        Reduce. amountMinor is the new REMAINING hold (0 or more); it never raises
+        it (not-a-reduction, 422). Reducing to zero closes the hold (VOIDED when
+        nothing was captured, otherwise CAPTURED). A hold that is not AUTHORIZED is
+        409 illegal-transition.
       parameters:
         - $ref: '#/components/parameters/HoldId'
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -220,8 +240,9 @@ paths:
       operationId: capture
       summary: Take money from the hold
       description: >-
-        Capture. Partial captures accumulate; over-capture and hold-expired are
-        409.
+        Capture. amountMinor must be positive (422). Partial captures accumulate;
+        over-capture, hold-expired and illegal-transition (hold not AUTHORIZED) are
+        409; hold-expired is checked before the amount.
       parameters:
         - $ref: '#/components/parameters/HoldId'
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -243,7 +264,7 @@ paths:
       tags: [Authorizations]
       operationId: refund
       summary: Return captured money
-      description: Refund. Refunds never exceed the captured total (over-refund, 409).
+      description: Refund. amountMinor must be positive (422). Refunds never exceed the captured total (over-refund, 409); a refund is accepted in any hold state.
       parameters:
         - $ref: '#/components/parameters/HoldId'
         - $ref: '#/components/parameters/IdempotencyKey'
@@ -265,7 +286,7 @@ paths:
       tags: [Platform]
       operationId: healthz
       summary: Liveness
-      description: Always 200 while the process runs.
+      description: Always 200 {status ok} while the process runs.
       responses:
         '200':
           description: Alive.
@@ -278,7 +299,7 @@ paths:
       tags: [Platform]
       operationId: readyz
       summary: Readiness
-      description: 200 while Postgres answers a ping and the process is not draining; 503 otherwise.
+      description: 200 while Postgres answers a ping (cached for 3 s) and the process is not draining; 503 otherwise.
       responses:
         '200':
           description: Ready.
@@ -287,11 +308,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/Status'
         '503':
-          description: Draining (status not_ready) or a dependency is unavailable (problem dependency-unavailable).
+          description: Draining (application/json, status not_ready) or Postgres is unavailable (problem dependency-unavailable, the detail names the failing dependency).
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/Status'
+              example: {status: not_ready}
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
 components:
   parameters:
     IdempotencyKey:
@@ -299,14 +324,19 @@ components:
       in: header
       required: true
       description: >-
-        A client-generated UUID per logical submit (a retry reuses it). The key is
-        global: a repeated key with the same method, path and body replays the
+        A client-generated key per logical submit (a retry reuses it); 1-128
+        printable ASCII characters, sent once (a UUID is conventional but not
+        required). Missing is 400 idempotency-key-required; empty-invalid, repeated
+        or non-printable is 400 idempotency-key-invalid. The key is global across
+        operations: a repeated key with the same operation and inputs replays the
         stored answer with Idempotency-Replayed true; the same key with another
-        request is 409 idempotency-key-reused.
+        operation or other inputs is 409 idempotency-key-reused. A failed request
+        leaves no claim behind, so its key can be retried.
       schema:
         type: string
         minLength: 1
         maxLength: 128
+        pattern: '^[ -~]{1,128}$'
     HoldId:
       name: id
       in: path
@@ -348,7 +378,10 @@ components:
           schema:
             $ref: '#/components/schemas/Movement'
     BadRequest:
-      description: malformed-request, idempotency-key-required or idempotency-key-invalid.
+      description: >-
+        malformed-request (unparseable or empty JSON, an unknown member, trailing
+        data, a body over 64 KiB, or a NUL in the query or body),
+        idempotency-key-required or idempotency-key-invalid.
       content:
         application/problem+json:
           schema:
@@ -356,9 +389,9 @@ components:
           examples:
             idempotencyKeyRequired:
               summary: The Idempotency-Key header is missing
-              value: {type: /problems/idempotency-key-required, title: Idempotency-Key header is required, status: 400}
+              value: {type: /problems/idempotency-key-required, title: Idempotency-Key header is required, status: 400, detail: the Idempotency-Key header is required on this operation, instance: /authorizations}
     NotFound:
-      description: not-found.
+      description: not-found (no such hold), or resource-not-found when the path contains a NUL.
       content:
         application/problem+json:
           schema:
@@ -375,9 +408,9 @@ components:
           examples:
             idempotencyKeyReused:
               summary: The Idempotency-Key was first used with a different request
-              value: {type: /problems/idempotency-key-reused, title: Idempotency-Key was already used with a different request, status: 409}
+              value: {type: /problems/idempotency-key-reused, title: Idempotency-Key was already used with a different request, status: 409, detail: Idempotency-Key was already used with a different request, instance: /authorizations}
     Unprocessable:
-      description: validation-failed or not-a-reduction.
+      description: validation-failed (bad scenario, amount or currency, empty reference, card number or unrecognised payment-method value) or not-a-reduction.
       content:
         application/problem+json:
           schema:
@@ -386,12 +419,12 @@ components:
     Problem:
       type: object
       description: RFC 9457 problem details.
-      required: [type, title, status]
+      required: [type, title, status, detail, instance]
       properties:
         type:
           type: string
           format: uri-reference
-          description: Problem type slug, for example over-refund.
+          description: /problems/<slug>, for example /problems/over-refund. The slug list is in the API description.
         title:
           type: string
         status:
@@ -400,9 +433,11 @@ components:
           maximum: 599
         detail:
           type: string
+          description: Always present; for internal-error it is a fixed generic message.
         instance:
           type: string
           format: uri-reference
+          description: Always present; the escaped request path.
         code:
           type: string
           description: The provider decline code (payment-declined only).
@@ -413,6 +448,8 @@ components:
       properties:
         status:
           type: string
+          description: ok (healthz), ready or not_ready (readyz).
+          enum: [ok, ready, not_ready]
           example: ready
     Scenario:
       type: string
@@ -420,6 +457,7 @@ components:
       enum: [approve, decline, timeout, expire-early]
     TokenRequest:
       type: object
+      additionalProperties: false
       properties:
         scenario:
           $ref: '#/components/schemas/Scenario'
@@ -434,6 +472,7 @@ components:
           $ref: '#/components/schemas/Scenario'
     AuthorizeRequest:
       type: object
+      additionalProperties: false
       required: [amountMinor, currency, paymentMethodToken, reference]
       properties:
         amountMinor:
@@ -448,16 +487,18 @@ components:
           description: A PSP token; never a card number.
         reference:
           type: string
-          description: The caller's reference, for example the checkout session id.
+          minLength: 1
+          description: The caller's reference, for example the checkout session id. Required and non-empty for approve and expire-early tokens.
     AmountRequest:
       type: object
+      additionalProperties: false
       required: [amountMinor]
       properties:
         amountMinor:
           type: integer
           format: int64
           minimum: 0
-          description: The amount in minor units; for a reduction, the new remaining hold.
+          description: The amount in minor units; positive for capture, refund and reauthorize (422 otherwise); for a reduction the new remaining hold, 0 or more.
     Hold:
       type: object
       required: [id, expiresAt, amountMinor, currency]
@@ -525,6 +566,7 @@ components:
           format: date-time
         supersededBy:
           type: string
+          description: The id of the replacing hold; present only when status is SUPERSEDED.
         movements:
           type: array
           items:
