@@ -13,7 +13,12 @@ import (
 	"github.com/IQVO/payment-provider-simulator/internal/application/views"
 )
 
-const idempotencyKeyHeader = "Idempotency-Key"
+const (
+	idempotencyKeyHeader = "Idempotency-Key"
+	// replayedHeader marks an answer that is the stored replay of an earlier
+	// request with the same Idempotency-Key (never set on the first execution).
+	replayedHeader = "Idempotency-Replayed"
+)
 
 type tokenRequest struct {
 	Scenario string `json:"scenario"`
@@ -58,6 +63,9 @@ func writeAnswer(w http.ResponseWriter, r *http.Request, a views.Answer, err err
 	if err != nil {
 		writeError(w, r, err)
 		return
+	}
+	if a.Replayed {
+		w.Header().Set(replayedHeader, "true")
 	}
 	switch a.Kind {
 	case views.KindDeclined:

@@ -24,7 +24,7 @@ func TestCaptureAndRefundLifecycle(t *testing.T) {
 	if err != nil || c.Kind != views.KindMovement || c.ID == "" {
 		t.Fatalf("capture = %+v, %v", c, err)
 	}
-	if again, _ := (usecases.Capture{Deps: r.deps}).Execute(ctx, cmd("c1", h.ID, 600)); again != c {
+	if again, _ := (usecases.Capture{Deps: r.deps}).Execute(ctx, cmd("c1", h.ID, 600)); again != replayOf(c) {
 		t.Fatalf("capture replay = %+v", again)
 	}
 	if _, err := (usecases.Capture{Deps: r.deps}).Execute(ctx, cmd("c2", h.ID, 401)); !errors.Is(err, providerauth.ErrOverCapture) {

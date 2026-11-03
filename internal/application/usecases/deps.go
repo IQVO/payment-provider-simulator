@@ -37,10 +37,15 @@ type Deps struct {
 	TimeoutDelay time.Duration
 }
 
-// once runs effect at most once per (operation, key): a replay of the same
-// request returns the stored answer, the same key with another request is
-// ErrIdempotencyKeyReused. The claim, the effect and the stored answer commit
-// together; a failed effect leaves no claim behind.
+// keyScope is the single namespace every Idempotency-Key is claimed in: the
+// key is global (fleet REST guideline 2.3), so the same key on another
+// operation is a different request (ErrIdempotencyKeyReused), never a fresh key.
+const keyScope = "*"
+
+// once runs effect at most once per key: a replay of the same request (same
+// operation and inputs) returns the stored answer marked Replayed, the same key
+// with another request is ErrIdempotencyKeyReused. The claim, the effect and
+// the stored answer commit together; a failed effect leaves no claim behind.
 func (d Deps) once(ctx context.Context, operation, key, fingerprint string,
 	effect func(ctx context.Context) (views.Answer, error),
 ) (views.Answer, error) {
@@ -48,8 +53,9 @@ func (d Deps) once(ctx context.Context, operation, key, fingerprint string,
 		return views.Answer{}, ErrIdempotencyKeyRequired
 	}
 	var out views.Answer
+	fingerprint = operation + "|" + fingerprint
 	err := d.UoW.Do(ctx, func(ctx context.Context) error {
-		rec, claimed, err := d.Idempotency.Claim(ctx, operation, key, fingerprint)
+		rec, claimed, err := d.Idempotency.Claim(ctx, keyScope, key, fingerprint)
 		if err != nil {
 			return err
 		}
@@ -58,12 +64,13 @@ func (d Deps) once(ctx context.Context, operation, key, fingerprint string,
 				return ErrIdempotencyKeyReused
 			}
 			out = rec.Answer
+			out.Replayed = true
 			return nil
 		}
 		if out, err = effect(ctx); err != nil {
 			return err
 		}
-		return d.Idempotency.Complete(ctx, operation, key, out)
+		return d.Idempotency.Complete(ctx, keyScope, key, out)
 	})
 	return out, err
 }

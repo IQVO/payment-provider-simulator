@@ -45,7 +45,7 @@ var problemCatalogue = []struct {
 }{
 	{errMalformedRequest, problem{http.StatusBadRequest, "malformed-request", "Malformed request"}},
 	{usecases.ErrIdempotencyKeyRequired, problem{http.StatusBadRequest, "idempotency-key-required", "Idempotency-Key header is required"}},
-	{usecases.ErrIdempotencyKeyReused, unprocessable("idempotency-key-reused", "Idempotency-Key was already used with a different request")},
+	{usecases.ErrIdempotencyKeyReused, conflict("idempotency-key-reused", "Idempotency-Key was already used with a different request")},
 	{ports.ErrNotFound, notFound},
 	{usecases.ErrProviderTimeout, problem{http.StatusGatewayTimeout, "provider-timeout", "The payment provider timed out; retry with the same Idempotency-Key"}},
 	{providerauth.ErrOverCapture, conflict("over-capture", "A capture never exceeds the remaining hold")},

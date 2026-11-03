@@ -21,10 +21,10 @@ func TestHoldOperationsEndToEnd(t *testing.T) {
 		{"/captures", "c2", `{"amountMinor":401}`, http.StatusConflict, "over-capture"},
 		{"/refunds", "r1", `{"amountMinor":100}`, http.StatusCreated, ""},
 		{"/refunds", "r2", `{"amountMinor":501}`, http.StatusConflict, "over-refund"},
-		{"/reduce", "d1", `{"amountMinor":200}`, http.StatusOK, ""},
-		{"/reduce", "d2", `{"amountMinor":900}`, http.StatusUnprocessableEntity, "not-a-reduction"},
-		{"/void", "v1", `{}`, http.StatusOK, ""},
-		{"/void", "v2", ``, http.StatusConflict, "illegal-transition"},
+		{"/reductions", "d1", `{"amountMinor":200}`, http.StatusOK, ""},
+		{"/reductions", "d2", `{"amountMinor":900}`, http.StatusUnprocessableEntity, "not-a-reduction"},
+		{"/voids", "v1", `{}`, http.StatusOK, ""},
+		{"/voids", "v2", ``, http.StatusConflict, "illegal-transition"},
 	}
 	for _, st := range steps {
 		status, out := r.post(t, base+st.path, st.key, st.body)
@@ -46,7 +46,7 @@ func TestReauthorizeAndExpiry(t *testing.T) {
 	_, hold := authorizeWith(t, r, "a", "tok_expire-early")
 	base := "/authorizations/" + hold["id"].(string)
 	r.clock.Advance(4 * 60 * 1e9)
-	status, next := r.post(t, base+"/reauthorize", "re", `{"amountMinor":700}`)
+	status, next := r.post(t, base+"/reauthorizations", "re", `{"amountMinor":700}`)
 	if status != http.StatusCreated || next["id"] == hold["id"] || next["amountMinor"] != float64(700) {
 		t.Fatalf("reauthorize = %d %v", status, next)
 	}
@@ -68,7 +68,7 @@ func TestUnknownHoldAndMalformedOperations(t *testing.T) {
 	if status, _ := r.post(t, "/authorizations/"+hold["id"].(string)+"/captures", "k", `{"amountMinor":1} {}`); status != http.StatusBadRequest {
 		t.Fatalf("trailing data = %d", status)
 	}
-	if status, _ := r.post(t, "/authorizations/"+hold["id"].(string)+"/void", "k", `{"x":1}`); status != http.StatusBadRequest {
+	if status, _ := r.post(t, "/authorizations/"+hold["id"].(string)+"/voids", "k", `{"x":1}`); status != http.StatusBadRequest {
 		t.Fatalf("void with fields = %d", status)
 	}
 }

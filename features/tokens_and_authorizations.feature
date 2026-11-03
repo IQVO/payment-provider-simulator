@@ -37,7 +37,7 @@ Feature: Tokens and authorizations
     Given a token for scenario "approve"
     When I authorize 1000 EUR with that token under key "k-1"
     And I authorize 2000 EUR with that token under key "k-1"
-    Then the response status is 422
+    Then the response status is 409
     And the problem type is "idempotency-key-reused"
 
   Scenario: A card number is never accepted
