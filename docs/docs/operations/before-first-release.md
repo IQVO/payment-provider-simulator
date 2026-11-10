@@ -1,3 +1,10 @@
+---
+id: before-first-release
+title: Before the first release
+sidebar_label: Before the first release
+sidebar_position: 3
+---
+
 # Before the first release: payment-provider-simulator
 
 The first merge to `main` runs `docker-publish` and `release`. Two services built from

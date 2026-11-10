@@ -1,0 +1,70 @@
+---
+id: authorize
+title: "Place a hold on the payment method a token stands for"
+description: "Authorize. approve and expire-early tokens answer 201 with the hold id and its expiry; a decline token answers 402 payment-declined with the decline code (final); a timeout token answers 504 provider-timeout after a short delay (transient, retry with the same key; the timeout scenario is answered before the Idempotency-Key is claimed, so it is never stored or replayed, and its body is not validated). A card number or an unrecognised token is a 422 validation-failed. A decline token only checks that amountMinor is positive."
+sidebar_label: "Place a hold on the payment method a token stands for"
+hide_title: true
+hide_table_of_contents: true
+api: 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
+sidebar_class_name: "post api-method"
+info_path: docs/api-reference/rest/payment-provider-simulator-api
+custom_edit_url: null
+hide_send_button: true
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+import Translate from "@docusaurus/Translate";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"Place a hold on the payment method a token stands for"}
+>
+</Heading>
+
+<MethodEndpoint
+  method={"post"}
+  path={"/authorizations"}
+  context={"endpoint"}
+>
+  
+</MethodEndpoint>
+
+
+
+Authorize. approve and expire-early tokens answer 201 with the hold id and its expiry; a decline token answers 402 payment-declined with the decline code (final); a timeout token answers 504 provider-timeout after a short delay (transient, retry with the same key; the timeout scenario is answered before the Idempotency-Key is claimed, so it is never stored or replayed, and its body is not validated). A card number or an unrecognised token is a 422 validation-failed. A decline token only checks that amountMinor is positive.
+
+<Heading
+  id={"request"}
+  as={"h2"}
+  className={"openapi-tabs__heading"}
+>
+  <Translate id="theme.openapi.request.title">Request</Translate>
+</Heading>
+
+<ParamsDetails
+  {...require("./authorize.ParamsDetails.json")}
+>
+  
+</ParamsDetails>
+
+<RequestSchema
+  {...require("./authorize.RequestSchema.json")}
+>
+  
+</RequestSchema>
+
+<StatusCodes
+  {...require("./authorize.StatusCodes.json")}
+>
+  
+</StatusCodes>
+
+
+      

@@ -1,0 +1,70 @@
+---
+id: reduce-authorization
+title: "Lower the remaining hold (partial release)"
+description: "Reduce. amountMinor is the new REMAINING hold (0 or more); it never raises it (not-a-reduction, 422). Reducing to zero closes the hold (VOIDED when nothing was captured, otherwise CAPTURED). A hold that is not AUTHORIZED is 409 illegal-transition."
+sidebar_label: "Lower the remaining hold (partial release)"
+hide_title: true
+hide_table_of_contents: true
+api: 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
+sidebar_class_name: "post api-method"
+info_path: docs/api-reference/rest/payment-provider-simulator-api
+custom_edit_url: null
+hide_send_button: true
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+import Translate from "@docusaurus/Translate";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"Lower the remaining hold (partial release)"}
+>
+</Heading>
+
+<MethodEndpoint
+  method={"post"}
+  path={"/authorizations/{id}/reductions"}
+  context={"endpoint"}
+>
+  
+</MethodEndpoint>
+
+
+
+Reduce. amountMinor is the new REMAINING hold (0 or more); it never raises it (not-a-reduction, 422). Reducing to zero closes the hold (VOIDED when nothing was captured, otherwise CAPTURED). A hold that is not AUTHORIZED is 409 illegal-transition.
+
+<Heading
+  id={"request"}
+  as={"h2"}
+  className={"openapi-tabs__heading"}
+>
+  <Translate id="theme.openapi.request.title">Request</Translate>
+</Heading>
+
+<ParamsDetails
+  {...require("./reduce-authorization.ParamsDetails.json")}
+>
+  
+</ParamsDetails>
+
+<RequestSchema
+  {...require("./reduce-authorization.RequestSchema.json")}
+>
+  
+</RequestSchema>
+
+<StatusCodes
+  {...require("./reduce-authorization.StatusCodes.json")}
+>
+  
+</StatusCodes>
+
+
+      

@@ -1,0 +1,47 @@
+---
+id: payment-provider-simulator-api
+title: "Payment Provider Simulator API"
+description: "Go stand-in for the external payment provider of the digital storefront. It implements exactly the provider contract customer-payments documents in its ADR 0002 assumption A12. Every POST carries an Idempotency-Key header and the same key returns the same answer; bodies are JSON, amounts are integer minor units, and only PSP tokens travel, never a card number. A 4xx decline is final (402 with a code); 5xx and 504 are transient. Outcomes are deterministic: a payment-method token names its test scenario. Scenario vocabulary (POST /tokens issues tok_<scenario>_<suffix>; the bare literals tok_approve, tok_decline, tok_timeout and tok_expire-early also work). approve - authorizes, the hold lasts 7 days. decline - every authorization answers 402 CARD_DECLINED. timeout - the authorization answers 504 after a short delay (at most 2 s). expire-early - authorizes, the hold lasts 5 minutes, so re-authorization before expiry is testable; a re-authorized expire-early hold keeps the 5 minute validity. Errors are RFC 9457 problem details (application/problem+json) whose type is /problems/<slug>: malformed-request, idempotency-key-required, idempotency-key-invalid, resource-not-found (a NUL in the path), not-found, payment-declined, validation-failed, not-a-reduction, idempotency-key-reused, illegal-transition, over-capture, over-refund, hold-expired, provider-timeout, dependency-unavailable, internal-error. No authentication."
+sidebar_label: Introduction
+sidebar_position: 0
+hide_title: true
+custom_edit_url: null
+---
+
+import ApiLogo from "@theme/ApiLogo";
+import Heading from "@theme/Heading";
+import SchemaTabs from "@theme/SchemaTabs";
+import TabItem from "@theme/TabItem";
+import Export from "@theme/ApiExplorer/Export";
+
+<span
+  className={"theme-doc-version-badge badge badge--secondary"}
+  children={"Version: 1.0.0"}
+>
+</span>
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"Payment Provider Simulator API"}
+>
+</Heading>
+
+
+
+Go stand-in for the external payment provider of the digital storefront. It implements exactly the provider contract customer-payments documents in its ADR 0002 assumption A12. Every POST carries an Idempotency-Key header and the same key returns the same answer; bodies are JSON, amounts are integer minor units, and only PSP tokens travel, never a card number. A 4xx decline is final (402 with a code); 5xx and 504 are transient. Outcomes are deterministic: a payment-method token names its test scenario. Scenario vocabulary (POST /tokens issues tok_&lt;scenario&gt;_&lt;suffix&gt;; the bare literals tok_approve, tok_decline, tok_timeout and tok_expire-early also work). approve - authorizes, the hold lasts 7 days. decline - every authorization answers 402 CARD_DECLINED. timeout - the authorization answers 504 after a short delay (at most 2 s). expire-early - authorizes, the hold lasts 5 minutes, so re-authorization before expiry is testable; a re-authorized expire-early hold keeps the 5 minute validity. Errors are RFC 9457 problem details (application/problem+json) whose type is /problems/&lt;slug&gt;: malformed-request, idempotency-key-required, idempotency-key-invalid, resource-not-found (a NUL in the path), not-found, payment-declined, validation-failed, not-a-reduction, idempotency-key-reused, illegal-transition, over-capture, over-refund, hold-expired, provider-timeout, dependency-unavailable, internal-error. No authentication.
+
+<div
+  style={{"display":"flex","flexDirection":"column","marginBottom":"var(--ifm-paragraph-margin-bottom)"}}
+>
+  <h3
+    style={{"marginBottom":"0.25rem"}}
+  >
+    Contact
+  </h3><span>
+    payment-provider-simulator maintainers: 
+  </span><span>
+    URL: [https://github.com/IQVO/payment-provider-simulator](https://github.com/IQVO/payment-provider-simulator)
+  </span>
+</div>
+      

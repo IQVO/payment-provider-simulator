@@ -18,15 +18,16 @@ This project is a domain-driven design study. It is not associated with, endorse
 
 ## Documentation
 
-This repository has no docs site of its own (it is one of the storefront's supporting repos, so it has no ddd-crew context pack). Its documentation lives on the warehouse-docs storefront pages:
+The docs site is published at **<https://iqvo.github.io/payment-provider-simulator/>** (Docusaurus, source in [`docs/`](docs/), built on every PR by `docs.yml` and deployed to GitHub Pages from `main`):
 
 | Area | Pages |
 |---|---|
-| Storefront domain | [Overview](https://iqvo.github.io/warehouse-docs/storefront), [Edge and supporting components](https://iqvo.github.io/warehouse-docs/storefront/components) (the simulator's page incl. the test-token table) |
-| The caller | [customer-payments context](https://iqvo.github.io/warehouse-docs/storefront/contexts/customer-payments) (the ACL port this contract implements) |
-| Decisions & contracts | [Storefront ADRs](https://iqvo.github.io/warehouse-docs/storefront/adr), [API reference](https://iqvo.github.io/warehouse-docs/storefront/api-reference) |
+| Overview | [Introduction](https://iqvo.github.io/payment-provider-simulator/docs/overview/introduction), [Quickstart](https://iqvo.github.io/payment-provider-simulator/docs/overview/quickstart) |
+| Operations | [Configuration](https://iqvo.github.io/payment-provider-simulator/docs/operations/configuration), [Runbook](https://iqvo.github.io/payment-provider-simulator/docs/operations/runbook), [Before the first release](https://iqvo.github.io/payment-provider-simulator/docs/operations/before-first-release) |
+| Development | [Testing](https://iqvo.github.io/payment-provider-simulator/docs/development/testing) |
+| Contracts & decisions | [API reference](https://iqvo.github.io/payment-provider-simulator/docs/api-reference) (generated from `apis/openapi.yaml`), [ADRs](https://iqvo.github.io/payment-provider-simulator/docs/adr) |
 
-In-tree: [docs/adr/](docs/adr/) (3 decisions), `docs/before-first-release.md` (packaging checklist), `HARNESS.md` (every quality gate).
+The REST reference under `docs/docs/api-reference/rest/` is generated: after changing `apis/openapi.yaml`, run `npm ci && npm run clean-api-docs && npm run gen-api-docs` in `docs/` and commit the result (the `docs-api-drift` CI job fails otherwise). The storefront-wide view lives on the warehouse-docs pages: [Overview](https://iqvo.github.io/warehouse-docs/storefront), [Edge and supporting components](https://iqvo.github.io/warehouse-docs/storefront/components), [customer-payments context](https://iqvo.github.io/warehouse-docs/storefront/contexts/customer-payments) (the ACL port this contract implements).
 
 ## Architecture
 
@@ -53,7 +54,8 @@ internal/
     outbound/repocontract/   the repository contract tests
   architecture/              the fitness tests below
 apis/                        openapi.yaml (REST) + asyncapi.yaml (deliberately empty)
-docs/adr/                    3 ADRs
+docs/adr/                    4 ADRs
+docs/                        the Docusaurus site (pages in docs/docs/)
 features/                    godog scenarios (tokens_and_authorizations, holds, expiry)
 charts/payment-provider-simulator/   the Helm chart
 ```
@@ -139,11 +141,11 @@ A string that is not a token is `422`; a 13 to 19 digit string is refused as a c
 - **Mutation**: `make mutation` (blocking subset) / `make mutation-full` — gremlins, config in `.gremlins.yaml`.
 - **Architecture fitness**: `make arch-test` — `internal/architecture/`.
 
-CI (`.github/workflows/ci.yml`) runs `lint`, `guide-lint`, `complexity`, `test`, `bdd`, `integration`, `mutation-fast`, `api-lint`, `vuln`, `helm-lint`, `chart-tests` and `arch-test` on every push and PR; the exhaustive `mutation` job runs on schedule; `docker-publish` pushes the image and `release` tags and publishes the chart.
+CI (`.github/workflows/ci.yml`) runs `lint`, `guide-lint`, `complexity`, `file-length`, `test`, `bdd`, `integration`, `mutation-fast`, `api-lint`, `vuln`, `docs-api-drift`, `helm-lint`, `chart-tests` and `arch-test` on every push and PR, and `trivy-scan` on PRs; the exhaustive `mutation` and the `drift` jobs run on the weekly schedule; `docker-publish` pushes the image and `release` tags and publishes the chart. `docs.yml` builds the docs site on PRs and deploys it from `main`.
 
 ## Architecture Decision Records
 
-[docs/adr/](docs/adr/) — 3 ADRs: 0001 bounded context, 0002 assumptions (incl. the contract and the no-events decision), 0003 fleet observability standard. `docs/before-first-release.md` is the packaging checklist.
+[docs/adr/](docs/adr/) — 4 ADRs: 0001 bounded context, 0002 assumptions (incl. the contract and the no-events decision), 0003 fleet observability standard, 0004 fleet REST API guideline. [Before the first release](docs/docs/operations/before-first-release.md) is the packaging checklist.
 
 ## License
 
