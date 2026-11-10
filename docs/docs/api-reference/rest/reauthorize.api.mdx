@@ -1,0 +1,70 @@
+---
+id: reauthorize
+title: "Replace the hold by a fresh one of the given amount"
+description: "Reauthorize. The old hold becomes SUPERSEDED and the answer is the NEW hold (new id, new expiry). The scenario of the token is kept, so an expire-early hold is renewed for another five minutes. amountMinor must be positive (422); a hold that is not AUTHORIZED is 409 illegal-transition."
+sidebar_label: "Replace the hold by a fresh one of the given amount"
+hide_title: true
+hide_table_of_contents: true
+api: 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
+sidebar_class_name: "post api-method"
+info_path: docs/api-reference/rest/payment-provider-simulator-api
+custom_edit_url: null
+hide_send_button: true
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+import Translate from "@docusaurus/Translate";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"Replace the hold by a fresh one of the given amount"}
+>
+</Heading>
+
+<MethodEndpoint
+  method={"post"}
+  path={"/authorizations/{id}/reauthorizations"}
+  context={"endpoint"}
+>
+  
+</MethodEndpoint>
+
+
+
+Reauthorize. The old hold becomes SUPERSEDED and the answer is the NEW hold (new id, new expiry). The scenario of the token is kept, so an expire-early hold is renewed for another five minutes. amountMinor must be positive (422); a hold that is not AUTHORIZED is 409 illegal-transition.
+
+<Heading
+  id={"request"}
+  as={"h2"}
+  className={"openapi-tabs__heading"}
+>
+  <Translate id="theme.openapi.request.title">Request</Translate>
+</Heading>
+
+<ParamsDetails
+  {...require("./reauthorize.ParamsDetails.json")}
+>
+  
+</ParamsDetails>
+
+<RequestSchema
+  {...require("./reauthorize.RequestSchema.json")}
+>
+  
+</RequestSchema>
+
+<StatusCodes
+  {...require("./reauthorize.StatusCodes.json")}
+>
+  
+</StatusCodes>
+
+
+      

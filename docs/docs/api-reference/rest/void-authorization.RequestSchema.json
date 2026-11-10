@@ -1,0 +1,1 @@
+{"title":"Body","body":{"required":false,"description":"No body is expected; an empty body or an empty object is accepted, any member is 400 malformed-request.","content":{"application/json":{"schema":{"type":"object","additionalProperties":false}}}}}

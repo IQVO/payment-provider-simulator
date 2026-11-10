@@ -43,6 +43,8 @@ three regulation categories: **maintainability**, **architecture fitness**,
 | `mutation` (gremlins, full domain) | maintainability | computational | weekly schedule | no (advisory report) | tens of minutes |
 | `vuln` (govulncheck) | maintainability | computational | PR | yes | seconds |
 | `api-lint` (Spectral) | maintainability | computational | PR | yes | seconds |
+| `docs-api-drift` (regenerated REST reference must equal `docs/docs/api-reference/rest`) | maintainability | computational | PR, push | yes | seconds |
+| Docs build (`docs.yml` job `build`) | maintainability | computational | PR touching `docs/`, `apis/` or the workflow; push to `main` also deploys Pages | yes | minutes |
 | `helm-lint` (`ct lint`) | maintainability | computational | PR | yes | seconds |
 | `trivy-scan` (image build + Trivy, SARIF to the Security tab) | maintainability | computational | PR | yes (CRITICAL/HIGH w/ fix) | minutes |
 | `CodeQL` | maintainability | computational | PR, schedule | yes (conversation-resolution) | minutes |

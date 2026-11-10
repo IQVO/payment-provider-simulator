@@ -12,7 +12,7 @@ customer-payments' anti-corruption layer calls at `PAYMENT_PROVIDER_URL`
 change nothing in the storefront. It owns the provider-side
 `ProviderAuthorization` (the hold, with its captures and refunds) and the
 token/scenario vocabulary. It ships ONE binary, `cmd/api` (REST `:8080`). No
-MCP, no A2A, no `web/`, no docs site.
+MCP, no A2A, no `web/`; its Docusaurus docs site lives in `docs/`.
 
 ## Hard rules (each one cost an incident or is fitness-tested)
 
@@ -81,9 +81,15 @@ at boot; `/readyz` gates on a Postgres ping and the drain gate).
 - `docs/adr/`: decisions (0001 bounded context, 0002 assumptions incl. the
   contract and the no-events decision, 0003 observability, 0004 REST
   guideline). `apis/openapi.yaml`: the contract (`api-lint` runs the Spectral
-  `rest-guideline` ruleset from `.spectral.yaml`). `docs/operations/runbook.md`,
-  `docs/before-first-release.md`. The rest of the documentation lives on the
-  warehouse-docs storefront pages. `HARNESS.md`: what each sensor runs.
+  `rest-guideline` ruleset from `.spectral.yaml`).
+- `docs/`: the Docusaurus site (published to GitHub Pages from `main`). Pages
+  in `docs/docs/` (runbook `docs/docs/operations/runbook.md`, packaging
+  checklist `docs/docs/operations/before-first-release.md`); the REST reference
+  `docs/docs/api-reference/rest/` is GENERATED from `apis/openapi.yaml`: after a
+  spec change run `npm run clean-api-docs && npm run gen-api-docs` in `docs/`
+  and commit it, or the `docs-api-drift` job fails. `docs/operations/runbook.md`
+  is only a pointer kept for the fleet alert links.
+- `HARNESS.md`: what each sensor runs.
 - `charts/payment-provider-simulator/`: the Helm chart.
 
 harness-template: v4
