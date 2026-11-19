@@ -5,6 +5,10 @@ metadata:
   name: {{ include "payment-provider-simulator.fullname" . }}
   labels:
     {{- include "payment-provider-simulator.labels" . | nindent 4 }}
+  {{- with include "payment-provider-simulator.kongPluginNames" . }}
+  annotations:
+    konghq.com/plugins: {{ . | quote }}
+  {{- end }}
 spec:
   parentRefs:
     {{- range .Values.gatewayApi.parentRefs }}
