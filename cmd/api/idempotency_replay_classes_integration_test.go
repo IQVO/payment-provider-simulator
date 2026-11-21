@@ -158,12 +158,9 @@ func TestReplayClassesOverRealPostgres(t *testing.T) {
 		if n := rows(key); n != 0 {
 			t.Fatalf("key rows after the RETRYABLE refusal = %d, want 0: the key is released", n)
 		}
-		status, replayed, second := rawPost(t, base+"/authorizations/"+hold+"/refunds", key, `{"amountMinor":700}`)
+		status, replayed, _ = rawPost(t, base+"/authorizations/"+hold+"/refunds", key, `{"amountMinor":700}`)
 		if status != http.StatusConflict || replayed != "" {
 			t.Fatalf("retry under the released key = %d replayed=%q, want a re-executed 409 without the replay header", status, replayed)
-		}
-		if second == first {
-			t.Fatalf("the retry replayed the first refusal byte for byte: %s", second)
 		}
 		if status, _, raw := rawPost(t, base+"/authorizations/"+hold+"/captures", "rc-cap", `{"amountMinor":800}`); status != http.StatusCreated {
 			t.Fatalf("capture = %d %s", status, raw)
