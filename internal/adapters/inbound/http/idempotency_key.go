@@ -5,8 +5,8 @@ import "net/http"
 const maxIdempotencyKeyLen = 128
 
 var (
-	keyRequired = problem{http.StatusBadRequest, "idempotency-key-required", "Idempotency-Key header is required"}
-	keyInvalid  = problem{http.StatusBadRequest, "idempotency-key-invalid", "Idempotency-Key must be 1-128 printable ASCII characters"}
+	keyRequired = problem{http.StatusBadRequest, "idempotency-key-required", "Idempotency-Key header is required", ""}
+	keyInvalid  = problem{http.StatusBadRequest, "idempotency-key-invalid", "Idempotency-Key must be 1-128 printable ASCII characters", ""}
 )
 
 // requireIdempotencyKey wraps every POST route (fleet REST guideline 2.2): a

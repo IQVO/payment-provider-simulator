@@ -51,3 +51,12 @@ calling the renamed routes.
 - Breaking: must deploy together with the REST cutover set.
 - The fingerprint is the operation plus the decoded inputs, not a hash of the raw body bytes: two bodies that decode
   to the same inputs (whitespace, key order) are the same request and replay.
+
+> **2026-11-21 — replay classes.** The sentence above that rolls a failed
+> command's claim back is superseded for FINAL refusals by
+> [ADR 0005](/docs/adr/0005-every-problem-type-has-a-replay-class): under the
+> fleet replay-class rule (owner decision 2026-11-18) every problem type
+> declares FINAL, OUTCOME or RETRYABLE; FINAL answers are now stored and
+> replayed (validation-failed, not-found, the one-way hold-state 409s), the
+> decline stays stored as it already was, and RETRYABLE answers
+> (over-refund, 5xx) still roll the claim back.

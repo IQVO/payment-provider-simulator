@@ -39,6 +39,15 @@ type IdempotencyStore interface {
 	Complete(ctx context.Context, operation, key string, answer views.Answer) error
 }
 
+// Refusals maps a typed error of a keyed operation to the refusal its problem
+// catalogue entry declares (the slug and the replay class). It is the port
+// through which the keyed-run engine learns a refusal's replay class; ok is
+// false for an error no catalogue entry matches, which the engine treats like
+// RETRYABLE (nothing stored, the key released): the fleet's safe fallback.
+type Refusals interface {
+	RefusalOf(err error) (refusal idempotency.Refusal, ok bool)
+}
+
 // UnitOfWork runs fn as ONE atomic unit: every repository and store call fn
 // makes with the ctx it is handed commits together when fn returns nil, or
 // rolls back together when fn returns an error. Do is re-entrant; the error fn

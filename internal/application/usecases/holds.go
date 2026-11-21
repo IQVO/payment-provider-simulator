@@ -20,7 +20,7 @@ func (d Deps) mutate(ctx context.Context, operation string, c HoldCommand,
 	change func(a *providerauth.Authorization) (*providerauth.Authorization, error),
 ) (views.Answer, error) {
 	fp := fingerprint(c.HoldID, c.AmountMinor)
-	return d.once(ctx, operation, c.Key, fp, func(ctx context.Context) (views.Answer, error) {
+	return d.Once(ctx, operation, c.Key, fp, func(ctx context.Context) (views.Answer, error) {
 		a, err := d.Authorizations.Get(ctx, providerauth.ID(c.HoldID))
 		if err != nil {
 			return views.Answer{}, err
@@ -77,7 +77,7 @@ func (d Deps) movement(ctx context.Context, operation string, kind providerauth.
 	apply func(a *providerauth.Authorization, id string) error,
 ) (views.Answer, error) {
 	fp := fingerprint(c.HoldID, c.AmountMinor)
-	return d.once(ctx, operation, c.Key, fp, func(ctx context.Context) (views.Answer, error) {
+	return d.Once(ctx, operation, c.Key, fp, func(ctx context.Context) (views.Answer, error) {
 		a, err := d.Authorizations.Get(ctx, providerauth.ID(c.HoldID))
 		if err != nil {
 			return views.Answer{}, err
