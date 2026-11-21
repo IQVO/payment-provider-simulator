@@ -96,7 +96,7 @@ DATABASE_URL="postgres://user:pass@localhost:5432/payment_provider?sslmode=disab
 
 ## API
 
-Contract: [`apis/openapi.yaml`](apis/openapi.yaml). Every POST carries an `Idempotency-Key` (missing: `400 idempotency-key-required`); the key is global, so a replay of the same request returns the stored answer with `Idempotency-Replayed: true` and the same key with another method, path or body is `409 idempotency-key-reused` ([ADR 0004](docs/adr/0004-adopt-the-fleet-rest-api-guideline.md)). Bodies are JSON, amounts are integer minor units, only PSP tokens travel, never a card number.
+Contract: [`apis/openapi.yaml`](apis/openapi.yaml). Every POST carries an `Idempotency-Key` (missing: `400 idempotency-key-required`); the key is global, so a replay of the same request returns the stored answer with `Idempotency-Replayed: true` and the same key with another method, path or body is `409 idempotency-key-reused` ([ADR 0004](docs/adr/0004-adopt-the-fleet-rest-api-guideline.md)). A refusal is stored and replayed only when it is final for the request ([ADR 0005](docs/adr/0005-every-problem-type-has-a-replay-class.md)): `validation-failed`, `not-found`, the decline and the one-way hold-state 409s (`over-capture`, `not-a-reduction`, `hold-expired`, `illegal-transition`) are FINAL; `over-refund` (a later capture can make it pass) and every 5xx are RETRYABLE — not stored, the key is released and the retry executes again. Bodies are JSON, amounts are integer minor units, only PSP tokens travel, never a card number.
 
 | Route | Purpose |
 | --- | --- |

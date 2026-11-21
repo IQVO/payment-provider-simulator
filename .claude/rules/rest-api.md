@@ -26,6 +26,12 @@ Route -> use case mapping, kept in sync with `apis/openapi.yaml` by hand. Every 
   `over-capture` / `over-refund` / `hold-expired` / `illegal-transition` (409), `validation-failed` /
   `not-a-reduction` / `idempotency-key-reused` (409), `provider-timeout` (504), `dependency-unavailable` (503).
 - 4xx decline is final; 5xx / 504 are transient (retry with the same key).
+- Replay classes (ADR 0005): every problem type above declares FINAL, OUTCOME or RETRYABLE on its
+  catalogue entry. FINAL (`validation-failed`, `not-found`, `payment-declined`, `over-capture`,
+  `not-a-reduction`, `hold-expired`, `illegal-transition`, the pre-store 400/404/409s) is stored
+  and replayed; RETRYABLE (`over-refund`, `provider-timeout`, `internal-error`,
+  `dependency-unavailable`) is not stored — the key is released and the retry executes again.
+  No entry is OUTCOME: no keyed command commits state before refusing.
 - `rejectNUL` runs first: a NUL in path, query or body is a client error, never a Postgres 22021.
 - Auth: none. The fleet-wide REST+MCP auth was deliberately reverted 2026-09-11 and stays off;
   `internal/architecture/fitness_test.go`'s TestNoAuthMiddlewareReintroduced guards it.
