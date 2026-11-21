@@ -28,18 +28,12 @@ type problem struct {
 	class  idempotency.ReplayClass
 }
 
-var internalProblem = problem{http.StatusInternalServerError, "internal-error", "Internal server error", ""}
-
-func unprocessable(slug, title string) problem {
-	return problem{http.StatusUnprocessableEntity, slug, title, ""}
-}
-
-func conflict(slug, title string) problem { return problem{http.StatusConflict, slug, title, ""} }
+var internalProblem = problem{http.StatusInternalServerError, "internal-error", "Internal server error", idempotency.ReplayRetryable}
 
 // Problems the adapter writes itself.
 var (
-	notFound        = problem{http.StatusNotFound, "not-found", "Not found", ""}
-	paymentDeclined = problem{http.StatusPaymentRequired, "payment-declined", "The payment provider declined the authorization", ""}
+	notFound        = problem{http.StatusNotFound, "not-found", "Not found", idempotency.ReplayFinal}
+	paymentDeclined = problem{http.StatusPaymentRequired, "payment-declined", "The payment provider declined the authorization", idempotency.ReplayFinal}
 )
 
 // problemCatalogue maps every typed error to its problem, in match order. The
@@ -48,17 +42,17 @@ var problemCatalogue = []struct {
 	err error
 	p   problem
 }{
-	{errMalformedRequest, problem{http.StatusBadRequest, "malformed-request", "Malformed request", ""}},
-	{usecases.ErrIdempotencyKeyRequired, problem{http.StatusBadRequest, "idempotency-key-required", "Idempotency-Key header is required", ""}},
-	{usecases.ErrIdempotencyKeyReused, conflict("idempotency-key-reused", "Idempotency-Key was already used with a different request")},
+	{errMalformedRequest, problem{http.StatusBadRequest, "malformed-request", "Malformed request", idempotency.ReplayFinal}},
+	{usecases.ErrIdempotencyKeyRequired, problem{http.StatusBadRequest, "idempotency-key-required", "Idempotency-Key header is required", idempotency.ReplayFinal}},
+	{usecases.ErrIdempotencyKeyReused, problem{http.StatusConflict, "idempotency-key-reused", "Idempotency-Key was already used with a different request", idempotency.ReplayFinal}},
 	{ports.ErrNotFound, notFound},
-	{usecases.ErrProviderTimeout, problem{http.StatusGatewayTimeout, "provider-timeout", "The payment provider timed out; retry with the same Idempotency-Key", ""}},
-	{providerauth.ErrOverCapture, conflict("over-capture", "A capture never exceeds the remaining hold")},
-	{providerauth.ErrOverRefund, conflict("over-refund", "Refunds never exceed the captured total")},
-	{providerauth.ErrHoldExpired, conflict("hold-expired", "No capture after the hold expired")},
-	{providerauth.ErrNotAReduction, unprocessable("not-a-reduction", "Reduce only lowers the remaining hold")},
-	{shared.ErrIllegalTransition, conflict("illegal-transition", "The hold does not allow this change in its current state")},
-	{shared.ErrValidation, unprocessable("validation-failed", "Validation failed")},
+	{usecases.ErrProviderTimeout, problem{http.StatusGatewayTimeout, "provider-timeout", "The payment provider timed out; retry with the same Idempotency-Key", idempotency.ReplayRetryable}},
+	{providerauth.ErrOverCapture, problem{http.StatusConflict, "over-capture", "A capture never exceeds the remaining hold", idempotency.ReplayFinal}},
+	{providerauth.ErrOverRefund, problem{http.StatusConflict, "over-refund", "Refunds never exceed the captured total", idempotency.ReplayRetryable}},
+	{providerauth.ErrHoldExpired, problem{http.StatusConflict, "hold-expired", "No capture after the hold expired", idempotency.ReplayFinal}},
+	{providerauth.ErrNotAReduction, problem{http.StatusUnprocessableEntity, "not-a-reduction", "Reduce only lowers the remaining hold", idempotency.ReplayFinal}},
+	{shared.ErrIllegalTransition, problem{http.StatusConflict, "illegal-transition", "The hold does not allow this change in its current state", idempotency.ReplayFinal}},
+	{shared.ErrValidation, problem{http.StatusUnprocessableEntity, "validation-failed", "Validation failed", idempotency.ReplayFinal}},
 }
 
 // problemFor returns the problem of the first catalogue entry err matches, or

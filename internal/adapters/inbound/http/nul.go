@@ -5,10 +5,12 @@ import (
 	"io"
 	"net/http"
 	"strings"
+
+	"github.com/IQVO/payment-provider-simulator/internal/application/idempotency"
 )
 
 // notFoundResource is the 404 of a request path that can never name a resource.
-var notFoundResource = problem{status: http.StatusNotFound, slug: "resource-not-found", title: "Resource not found", class: ""}
+var notFoundResource = problem{status: http.StatusNotFound, slug: "resource-not-found", title: "Resource not found", class: idempotency.ReplayFinal}
 
 // rejectNUL turns a NUL character in a request into a client error before it
 // can reach a Postgres text parameter. PostgreSQL text cannot hold U+0000, and

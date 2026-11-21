@@ -9,7 +9,7 @@ import (
 )
 
 // adrPath is the ADR whose table this test holds equal to the catalogue.
-const adrPath = "../../../docs/adr/0005-every-problem-type-has-a-replay-class.md"
+const adrPath = "../../../../docs/adr/0005-every-problem-type-has-a-replay-class.md"
 
 // adrClassTable parses the `| `slug` | CLASS | status |` rows of ADR 0005.
 func adrClassTable(t *testing.T) map[string]string {
