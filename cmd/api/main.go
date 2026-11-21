@@ -107,6 +107,7 @@ func buildServer(pool *pgxpool.Pool, delay time.Duration, readiness *inboundhttp
 	d := usecases.Deps{
 		UoW: postgres.NewUnitOfWork(pool), Authorizations: postgres.NewAuthorizationRepository(pool),
 		Idempotency: postgres.NewIdempotencyStore(pool), Clock: clock.System{}, IDs: ids.Generator{}, TimeoutDelay: delay,
+		Refusals: inboundhttp.NewRefusals(),
 	}
 	return &inboundhttp.Server{
 		IssueToken: usecases.IssueToken{Deps: d}, Authorize: usecases.Authorize{Deps: d},

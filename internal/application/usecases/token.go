@@ -24,7 +24,7 @@ func (u IssueToken) Execute(ctx context.Context, in IssueTokenInput) (views.Answ
 	if err != nil {
 		return views.Answer{}, err
 	}
-	return u.once(ctx, "tokens", in.Key, fingerprint(string(sc)), func(context.Context) (views.Answer, error) {
+	return u.Once(ctx, "tokens", in.Key, fingerprint(string(sc)), func(context.Context) (views.Answer, error) {
 		return views.Answer{
 			Kind: views.KindToken, Token: providertoken.Issue(sc, u.IDs.NewTokenSuffix()), Scenario: string(sc),
 		}, nil

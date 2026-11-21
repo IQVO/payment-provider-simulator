@@ -8,6 +8,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/IQVO/payment-provider-simulator/internal/application/idempotency"
 )
 
 // Dependency is one thing /readyz needs to be true: a name for the response
@@ -103,7 +105,7 @@ func (g *Readiness) Failing(ctx context.Context) []string {
 }
 
 // dependencyUnavailable is the 503 problem of a failed dependency check.
-var dependencyUnavailable = problem{status: http.StatusServiceUnavailable, slug: "dependency-unavailable", title: "A runtime dependency is unavailable"}
+var dependencyUnavailable = problem{status: http.StatusServiceUnavailable, slug: "dependency-unavailable", title: "A runtime dependency is unavailable", class: idempotency.ReplayRetryable}
 
 // handleReadyz: 200 {"status":"ready"} while ready; 503 {"status":"not_ready"}
 // once SetNotReady was called (draining); 503 problem+json

@@ -8,6 +8,7 @@ package memory
 import (
 	"context"
 	"maps"
+	"strings"
 	"sync"
 
 	"github.com/IQVO/payment-provider-simulator/internal/application/idempotency"
@@ -51,7 +52,10 @@ var _ ports.UnitOfWork = (*UnitOfWork)(nil)
 // NewUnitOfWork returns the unit of work of s.
 func NewUnitOfWork(s *Store) *UnitOfWork { return &UnitOfWork{s: s} }
 
-// Do implements ports.UnitOfWork.
+// Do implements ports.UnitOfWork. It restores the previous state when fn
+// fails — or PANICS: a panic aborts the unit like the Postgres transaction it
+// stands for, so a claimed key never survives a panicked effect (the fleet
+// rule: a panic is never stored).
 func (u *UnitOfWork) Do(ctx context.Context, fn func(ctx context.Context) error) error {
 	if ctx.Value(heldKey{}) != nil {
 		return fn(ctx)
@@ -59,9 +63,30 @@ func (u *UnitOfWork) Do(ctx context.Context, fn func(ctx context.Context) error)
 	u.s.mu.Lock()
 	defer u.s.mu.Unlock()
 	auths, idem := maps.Clone(u.s.auths), maps.Clone(u.s.idem)
+	committed := false
+	defer func() {
+		if !committed {
+			u.s.auths, u.s.idem = auths, idem
+		}
+	}()
 	if err := fn(context.WithValue(ctx, heldKey{}, true)); err != nil {
-		u.s.auths, u.s.idem = auths, idem
 		return err
 	}
+	committed = true
 	return nil
+}
+
+// Held is how many idempotency records the store holds for key across all
+// operations (0 after the key was released). Test accessor for the replay-class
+// reference test, which must not know the store's shape.
+func (s *Store) Held(key string) int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	n := 0
+	for k := range s.idem {
+		if _, held, ok := strings.Cut(k, "|"); ok && held == key {
+			n++
+		}
+	}
+	return n
 }

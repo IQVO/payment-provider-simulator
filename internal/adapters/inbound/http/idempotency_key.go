@@ -1,12 +1,16 @@
 package http
 
-import "net/http"
+import (
+	"net/http"
+
+	"github.com/IQVO/payment-provider-simulator/internal/application/idempotency"
+)
 
 const maxIdempotencyKeyLen = 128
 
 var (
-	keyRequired = problem{http.StatusBadRequest, "idempotency-key-required", "Idempotency-Key header is required"}
-	keyInvalid  = problem{http.StatusBadRequest, "idempotency-key-invalid", "Idempotency-Key must be 1-128 printable ASCII characters"}
+	keyRequired = problem{http.StatusBadRequest, "idempotency-key-required", "Idempotency-Key header is required", idempotency.ReplayFinal}
+	keyInvalid  = problem{http.StatusBadRequest, "idempotency-key-invalid", "Idempotency-Key must be 1-128 printable ASCII characters", idempotency.ReplayFinal}
 )
 
 // requireIdempotencyKey wraps every POST route (fleet REST guideline 2.2): a

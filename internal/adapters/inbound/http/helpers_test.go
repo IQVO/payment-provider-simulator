@@ -30,6 +30,7 @@ func newRig(t *testing.T, readiness *inbound.Readiness) *rig {
 	d := usecases.Deps{
 		UoW: memory.NewUnitOfWork(s), Authorizations: memory.NewAuthorizations(s),
 		Idempotency: memory.NewIdempotency(s), Clock: c, IDs: &memory.IDs{}, TimeoutDelay: 10 * time.Millisecond,
+		Refusals: inbound.NewRefusals(),
 	}
 	h := inbound.NewRouter(&inbound.Server{
 		IssueToken: usecases.IssueToken{Deps: d}, Authorize: usecases.Authorize{Deps: d},

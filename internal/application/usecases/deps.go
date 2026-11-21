@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/IQVO/payment-provider-simulator/internal/application/idempotency"
 	"github.com/IQVO/payment-provider-simulator/internal/application/ports"
 	"github.com/IQVO/payment-provider-simulator/internal/application/views"
 )
@@ -33,6 +34,10 @@ type Deps struct {
 	Idempotency    ports.IdempotencyStore
 	Clock          ports.Clock
 	IDs            ports.IDGenerator
+	// Refusals classifies an effect error for the replay-class rule; nil means
+	// every refusal is released like RETRYABLE (nothing stored). cmd wires the
+	// problem catalogue's implementation.
+	Refusals ports.Refusals
 	// TimeoutDelay is how long the timeout scenario stalls; zero means none.
 	TimeoutDelay time.Duration
 }
@@ -42,17 +47,24 @@ type Deps struct {
 // operation is a different request (ErrIdempotencyKeyReused), never a fresh key.
 const keyScope = "*"
 
-// once runs effect at most once per key: a replay of the same request (same
+// Once runs effect at most once per key: a replay of the same request (same
 // operation and inputs) returns the stored answer marked Replayed, the same key
 // with another request is ErrIdempotencyKeyReused. The claim, the effect and
-// the stored answer commit together; a failed effect leaves no claim behind.
-func (d Deps) once(ctx context.Context, operation, key, fingerprint string,
+// the stored answer commit together; a failed effect leaves no claim behind —
+// UNLESS the failure's problem type is FINAL or OUTCOME (replay-class rule,
+// owner decision 2026-11-18): then the refusal is stored as the key's answer
+// and the unit commits, so a retry replays it byte for byte. RETRYABLE and
+// unclassified refusals roll the whole unit back and release the key.
+func (d Deps) Once(ctx context.Context, operation, key, fingerprint string,
 	effect func(ctx context.Context) (views.Answer, error),
 ) (views.Answer, error) {
 	if key == "" {
 		return views.Answer{}, ErrIdempotencyKeyRequired
 	}
-	var out views.Answer
+	var (
+		out     views.Answer
+		refused error
+	)
 	fingerprint = operation + "|" + fingerprint
 	err := d.UoW.Do(ctx, func(ctx context.Context) error {
 		rec, claimed, err := d.Idempotency.Claim(ctx, keyScope, key, fingerprint)
@@ -68,11 +80,40 @@ func (d Deps) once(ctx context.Context, operation, key, fingerprint string,
 			return nil
 		}
 		if out, err = effect(ctx); err != nil {
-			return err
+			if !d.storesRefusal(err) {
+				return err
+			}
+			refusal := views.Answer{Kind: views.KindProblem, Slug: d.refusalSlug(err), Detail: err.Error()}
+			if cerr := d.Idempotency.Complete(ctx, keyScope, key, refusal); cerr != nil {
+				return cerr
+			}
+			refused = err
+			return nil // commit the stored refusal; the caller still answers err
 		}
 		return d.Idempotency.Complete(ctx, keyScope, key, out)
 	})
+	if refused != nil && err == nil {
+		err = refused
+		out = views.Answer{}
+	}
 	return out, err
+}
+
+// storesRefusal reports whether err's problem type is FINAL or OUTCOME: the
+// keyed answer must be remembered. Everything else (RETRYABLE, unclassified, a
+// 5xx) is released — the rollback this store always did.
+func (d Deps) storesRefusal(err error) bool {
+	if d.Refusals == nil {
+		return false
+	}
+	refusal, ok := d.Refusals.RefusalOf(err)
+	return ok && (refusal.Class == idempotency.ReplayFinal || refusal.Class == idempotency.ReplayOutcome)
+}
+
+// refusalSlug is the catalogue slug of a refusal storesRefusal accepted.
+func (d Deps) refusalSlug(err error) string {
+	refusal, _ := d.Refusals.RefusalOf(err)
+	return refusal.Slug
 }
 
 func fingerprint(parts ...any) string { return fmt.Sprintf("%#v", parts) }

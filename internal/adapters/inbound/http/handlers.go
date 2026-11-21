@@ -72,6 +72,15 @@ func writeAnswer(w http.ResponseWriter, r *http.Request, a views.Answer, err err
 		body := problemBody(r, paymentDeclined, "the payment method was declined: "+a.Code)
 		body.Code = a.Code
 		writeBody(w, paymentDeclined.status, body)
+	case views.KindProblem:
+		// The stored replay of a FINAL/OUTCOME refusal: rendered from the
+		// catalogue entry its slug names, with the stored detail, so it is
+		// byte for byte the first refusal.
+		p, ok := problemBySlug(a.Slug)
+		if !ok {
+			p = internalProblem
+		}
+		writeBody(w, p.status, problemBody(r, p, a.Detail))
 	case views.KindToken:
 		writeJSON(w, http.StatusCreated, tokenResponse{Token: a.Token, Scenario: a.Scenario})
 	case views.KindHold:

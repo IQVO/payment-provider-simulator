@@ -15,6 +15,11 @@ const (
 	KindMovement Kind = "MOVEMENT"
 	KindDone     Kind = "DONE"
 	KindDeclined Kind = "DECLINED"
+	// KindProblem is a STORED refusal answer: a FINAL or OUTCOME problem the
+	// keyed-run engine remembered under the key instead of rolling the claim
+	// back. Slug names its catalogue entry; Detail is the exact detail of the
+	// first answer, so a replay is byte for byte the first refusal.
+	KindProblem Kind = "PROBLEM"
 )
 
 // Answer is the outcome of one idempotent POST. Only the fields of its Kind
@@ -28,6 +33,9 @@ type Answer struct {
 	Token       string    `json:"token,omitempty"`
 	Scenario    string    `json:"scenario,omitempty"`
 	Code        string    `json:"code,omitempty"`
+	// Slug and Detail carry a KindProblem answer (a stored refusal).
+	Slug   string `json:"slug,omitempty"`
+	Detail string `json:"detail,omitempty"`
 	// Replayed is true on the answer of a replay; never stored.
 	Replayed bool `json:"-"`
 }

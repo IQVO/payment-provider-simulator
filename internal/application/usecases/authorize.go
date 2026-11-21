@@ -36,7 +36,7 @@ func (u Authorize) Execute(ctx context.Context, in AuthorizeInput) (views.Answer
 		return views.Answer{}, ErrProviderTimeout
 	}
 	fp := fingerprint(in.AmountMinor, in.Currency, in.PaymentMethodToken, in.Reference)
-	return u.once(ctx, "authorize", in.Key, fp, func(ctx context.Context) (views.Answer, error) {
+	return u.Once(ctx, "authorize", in.Key, fp, func(ctx context.Context) (views.Answer, error) {
 		if sc == providertoken.Decline {
 			if err := validateAmount(in.AmountMinor); err != nil {
 				return views.Answer{}, err
