@@ -18,4 +18,4 @@ old one. The *Status* column is copied from each ADR's own status line.
 | [0002](/docs/adr/0002-payment-provider-simulator-assumptions) | Payment Provider Simulator assumptions | Accepted. Contract source: customer-payments `docs/adr/0002-customer-payments-assumptions.md`, assumption A12. |
 | [0003](/docs/adr/0003-fleet-observability-standard) | Adopt the fleet observability standard (logs, metrics, traces) | Accepted (2026-10-29). |
 | [0004](/docs/adr/0004-adopt-the-fleet-rest-api-guideline) | Adopt the fleet REST API guideline | Accepted. Date: 2026-11-01. |
-| [0005](/docs/adr/0005-every-problem-type-has-a-replay-class) | Every problem type has a replay class | Accepted. Date: 2026-11-21. |
+| [0005](/docs/adr/0005-every-problem-type-has-a-replay-class) | Every problem type has a replay class | Accepted. Date: 2026-11-21; amended 2026-11-22 (24 h idempotency-key TTL and hourly purge). |

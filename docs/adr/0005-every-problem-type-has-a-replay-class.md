@@ -1,7 +1,6 @@
 # ADR 0005: Every problem type has a replay class
 
-- Status: Accepted
-- Date: 2026-11-21
+- Status: Accepted (2026-11-21); amended 2026-11-22 (a 24 h idempotency-key TTL and an hourly purge — the retention open point of judgement call 4, order-sourcing #84 / last-mile-delivery #86 / exception-management #76)
 
 ## Context
 
@@ -56,3 +55,54 @@ customer-payments (ADR 0008) is the only caller: it sends deterministic keys `<o
 - A retry of a FINAL refusal answers from the store (byte-identical, `Idempotency-Replayed: true`); a retry of a RETRYABLE refusal executes again; a different body under a released key is a new request.
 - A concurrent duplicate waits on the store's unique index until the first unit ends: a released (RETRYABLE) first request leaves the waiter a fresh claim, so it EXECUTES the request itself; a committed first answer (2xx or stored FINAL) is replayed to the waiter.
 - `replay_class_catalogue_test.go` holds this table equal to the catalogue; the harness reference test (`idempotency_replay_classes_test.go`, verbatim) proves each class over the keyed-run engine.
+
+## Addendum 2026-11-22: a 24 h TTL and an hourly purge
+
+Judgement call 4 above left retention as this ADR's open point: "No TTL is
+enforced at all (`idempotency_records.created_at` exists; nothing purges, no
+age check on replay)". This PR resolves it the fleet way (the pattern is
+order-sourcing #84's worker, last-mile-delivery #86's port shape and
+exception-management #76's TTL introduction — this store had NO TTL, so a
+stored answer replayed forever):
+
+- **One constant**, `idempotency.RetentionTTL = 24 h` (the fleet default):
+  the single age shared by the replay read's guard, the claim's refresh and
+  the purge.
+- **Age guard on the replay read**: `Claim`'s SELECT answers only a row
+  with `created_at > now() - TTL`, so an expired row can never answer a
+  replay between expiry and the sweep.
+- **Refresh on the claim**: the claim INSERT's conflict arm became
+  `DO UPDATE SET fingerprint, answer = NULL, created_at = now() WHERE
+  created_at <= now() - TTL`. A LIVE row matches nothing (0 rows affected)
+  and replays exactly as before; an EXPIRED row is refreshed in place and
+  the request EXECUTES — past the window the key is free, and a different
+  request under it is a NEW request instead of 409
+  `idempotency-key-reused`. The `idempotency-key-reused` FINAL premise
+  above held on "no TTL, no purge"; it now holds within the 24 h window
+  only.
+- **Purge**: `PurgeExpired(ctx, limit)` on `ports.IdempotencyStore`
+  (Postgres and the memory double), run by `cmd/api`'s first background
+  worker — one pass at start, then hourly, batches of 500 picked oldest
+  first with `FOR UPDATE SKIP LOCKED`, the age re-checked on the DELETE, no
+  advisory lock, never waiting on a row a request holds (migration 0002
+  indexes `created_at`). Expiry is enforced at read; the purge only stops
+  the table from growing. The shared contract suite
+  `repocontract.RunIdempotencyRetention` pins both stores to the same
+  semantics.
+
+**What the TTL means for customer-payments (ADR 0008).** That dependency
+retries internal attempts under deterministic keys `<op>:<authorizationID>:<groupNo>:<qualifier>`
+and relies on this service replaying a stored provider answer under them.
+Within the 24 h window nothing changes: the replay contract is byte for
+byte what ADR 0005 decided (FINAL answers, successes and the stored decline
+replay with `Idempotency-Replayed: true`). Past the window the key is free
+and the same request re-executes — the fleet rule's desired behaviour: a
+caller retrying a day later gets a fresh, correct answer (and for
+authorize, a fresh hold) instead of a stale replay; a caller that must not
+re-execute must keep its retries inside the window.
+
+The pre-claim 400/404/409 answers (`malformed-request`,
+`idempotency-key-required`/`-invalid`, `resource-not-found`) are untouched:
+they are answered before the store and never had a row to expire. The
+table above stands as the record of 2026-11-21; no Decision text is
+rewritten.

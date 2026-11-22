@@ -14,7 +14,10 @@ info:
     (validation-failed, not-found, over-capture, not-a-reduction,
     hold-expired, illegal-transition) are stored and replayed with
     Idempotency-Replayed true, while RETRYABLE refusals (over-refund, any 5xx)
-    are not stored, the key is released and the retry executes again; bodies
+    are not stored, the key is released and the retry executes again. A stored
+    answer lives for 24 hours (ADR 0005, addendum 2026-11-22): past that
+    window the key is free and the request re-executes instead of replaying.
+    Bodies
     are JSON, amounts are integer minor
     units, and only PSP tokens travel, never a card number. A 4xx decline is
     final (402 with a code); 5xx and 504 are transient. Outcomes are
@@ -342,7 +345,10 @@ components:
         over-capture, not-a-reduction, hold-expired, illegal-transition); a
         retryable refusal (over-refund, which a later capture can make pass, or
         any 5xx) leaves no claim behind, so its key is released and the retry
-        executes again.
+        executes again. A stored answer lives for 24 hours (ADR 0005, addendum
+        2026-11-22): past that window the key is free — the same request
+        re-executes instead of replaying, and another request under the key is a
+        new request, not 409 idempotency-key-reused.
       schema:
         type: string
         minLength: 1
@@ -357,7 +363,7 @@ components:
         type: string
   headers:
     IdempotencyReplayed:
-      description: Present, with the value true, only when the answer is the stored replay of an earlier request with the same Idempotency-Key.
+      description: Present, with the value true, only when the answer is the stored replay of an earlier request with the same Idempotency-Key, and that stored answer is still inside its 24-hour replay window.
       schema:
         type: string
         enum: ['true']

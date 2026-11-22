@@ -98,6 +98,27 @@ DSN goes through a transaction-mode pooler, keep the direct key populated or
 migrations hang. The migrations/first ping retry with bounded backoff
 (`internal/bootretry`), so the startup probe allows ~60s.
 
+## Idempotency-key retention
+
+A stored `Idempotency-Key` answer lives for 24 hours
+(`idempotency.RetentionTTL`, ADR 0005 addendum 2026-11-22). Inside the
+window the replay contract is unchanged (a retry of the same request
+replays the stored answer with `Idempotency-Replayed: true`); past it the
+key is free — the same request re-executes and another request under the
+key is a new request, not `409 idempotency-key-reused`.
+
+A background worker (`cmd/api/retention.go`) purges the expired
+`idempotency_records` rows: one pass at start, then hourly, in DELETE
+batches of at most 500 rows picked oldest-first with
+`FOR UPDATE SKIP LOCKED` (a row a request holds is skipped, never waited
+on; the age is re-checked on the DELETE itself). Expiry is enforced at
+read, so the purge only bounds how long a dead row stays on disk: if a
+pass fails it is logged (`idempotency purge failed; the next tick
+retries`) and retried on the next tick — not a paging event. Table growth
+beyond ~24h of traffic means the purge is not running: check the
+`idempotency purge running` log line at boot and the worker's drain on
+shutdown.
+
 ## Dashboards, alerts and telemetry
 
 Logs are stdout JSON (level from `LOG_LEVEL`, `trace_id`/`span_id` stamped by the
