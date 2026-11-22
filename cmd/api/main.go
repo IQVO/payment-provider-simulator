@@ -1,7 +1,9 @@
 // Command api is payment-provider-simulator's composition root: it wires env
 // config into the Postgres adapters, the adapters into use cases and the use
 // cases into the HTTP router. It runs on real Postgres only (there is no
-// in-memory mode) and neither publishes nor consumes Kafka events (ADR 0002).
+// in-memory mode) and neither publishes nor consumes Kafka events (ADR 0002),
+// and it runs the idempotency-key retention purge (a 24-hour window with an
+// hourly sweep, ADR 0005 addendum 2026-11-22).
 //
 // Environment:
 //
@@ -81,7 +83,17 @@ func run(ctx context.Context) error {
 		Handler:           inboundhttp.NewRouter(buildServer(pool, timeoutDelay(os.Getenv("PROVIDER_TIMEOUT_DELAY"), logger), readiness), logger, getenv("OTEL_SERVICE_NAME", "payment-provider-simulator")),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
-	return serveUntilSignal(ctx, logger, httpServer, readiness)
+	// The idempotency-key retention purge (ADR 0005, addendum 2026-11-22):
+	// one pass at start, then hourly. It stops with run's ctx — the
+	// integration test cancels it — and after the signal-driven shutdown
+	// below, bounded by awaitPurge before the deferred pool.Close.
+	purgeCtx, stopPurge := context.WithCancel(ctx)
+	purgeDone := startIdempotencyPurge(purgeCtx, postgres.NewIdempotencyStore(pool), logger)
+	defer stopPurge()
+	err = serveUntilSignal(ctx, logger, httpServer, readiness)
+	stopPurge()
+	awaitPurge(logger, purgeDone)
+	return err
 }
 
 // openPool runs the embedded migrations and opens the pool. The first outbound

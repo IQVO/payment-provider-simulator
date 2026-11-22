@@ -10,23 +10,49 @@ import (
 	"maps"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/IQVO/payment-provider-simulator/internal/application/idempotency"
 	"github.com/IQVO/payment-provider-simulator/internal/application/ports"
 	"github.com/IQVO/payment-provider-simulator/internal/domain/providerauth"
 )
 
+// idemEntry is one idempotency record plus the instant it was claimed (the
+// double of idempotency_records.created_at, against which the retention
+// window is measured).
+type idemEntry struct {
+	rec       idempotency.Record
+	claimedAt time.Time
+}
+
 // Store is the shared state behind the memory repositories and the unit of
 // work. The zero value is not usable; use NewStore.
 type Store struct {
 	mu    sync.Mutex
 	auths map[providerauth.ID]providerauth.Snapshot
-	idem  map[string]idempotency.Record
+	idem  map[string]idemEntry
+	now   func() time.Time
 }
 
-// NewStore returns an empty store.
+// NewStore returns an empty store stamping claims with the wall clock (a
+// record claimed "now" is live for the whole idempotency.RetentionTTL).
 func NewStore() *Store {
-	return &Store{auths: map[providerauth.ID]providerauth.Snapshot{}, idem: map[string]idempotency.Record{}}
+	return newStore(time.Now)
+}
+
+// NewStoreClock returns an empty store stamping claims with clock — the
+// same settable Clock the use cases read, so a test that advances it
+// advances the retention window with it.
+func NewStoreClock(clock *Clock) *Store {
+	return newStore(clock.Now)
+}
+
+func newStore(now func() time.Time) *Store {
+	return &Store{
+		auths: map[providerauth.ID]providerauth.Snapshot{},
+		idem:  map[string]idemEntry{},
+		now:   now,
+	}
 }
 
 type heldKey struct{}

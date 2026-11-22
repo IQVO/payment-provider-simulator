@@ -37,6 +37,13 @@ type IdempotencyStore interface {
 	Claim(ctx context.Context, operation, key, fingerprint string) (rec idempotency.Record, claimed bool, err error)
 	// Complete stores the answer of a claimed pair.
 	Complete(ctx context.Context, operation, key string, answer views.Answer) error
+	// PurgeExpired deletes at most limit records older than
+	// idempotency.RetentionTTL, oldest first, and returns how many it
+	// deleted. It runs OUTSIDE any unit of work (the background retention
+	// worker's call) and must never delete a record a request holds nor wait
+	// on one: expiry is enforced at read, so the purge only stops the table
+	// from growing.
+	PurgeExpired(ctx context.Context, limit int) (int, error)
 }
 
 // Refusals maps a typed error of a keyed operation to the refusal its problem

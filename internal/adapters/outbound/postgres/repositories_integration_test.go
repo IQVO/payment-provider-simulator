@@ -5,6 +5,7 @@ package postgres_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/IQVO/payment-provider-simulator/internal/adapters/outbound/postgres"
 	"github.com/IQVO/payment-provider-simulator/internal/adapters/outbound/repocontract"
@@ -17,6 +18,27 @@ func TestRepositoryContract(t *testing.T) {
 		return repocontract.Adapters{
 			UoW: postgres.NewUnitOfWork(pool), Authorizations: postgres.NewAuthorizationRepository(pool),
 			Idempotency: postgres.NewIdempotencyStore(pool),
+		}
+	})
+}
+
+// TestIdempotencyRetentionContract runs the retention contract (ADR 0005,
+// addendum 2026-11-22) against the Postgres store: Age moves created_at,
+// the double of the memory clock advancing.
+func TestIdempotencyRetentionContract(t *testing.T) {
+	repocontract.RunIdempotencyRetention(t, func(t *testing.T) repocontract.IdempotencyRetentionFixture {
+		pool := pgtest.NewPool(t)
+		return repocontract.IdempotencyRetentionFixture{
+			Adapters: repocontract.Adapters{
+				UoW: postgres.NewUnitOfWork(pool), Idempotency: postgres.NewIdempotencyStore(pool),
+			},
+			Age: func(t *testing.T, d time.Duration) {
+				t.Helper()
+				if _, err := pool.Exec(context.Background(),
+					`UPDATE idempotency_records SET created_at = created_at - $1::interval`, d.String()); err != nil {
+					t.Fatal(err)
+				}
+			},
 		}
 	})
 }

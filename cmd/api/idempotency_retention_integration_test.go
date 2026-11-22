@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -25,11 +26,13 @@ import (
 
 // retentionDB is the test's SQL handle on the booted service's own database:
 // it ages key rows (the only way a test reaches an expired row without
-// waiting a day), counts them and counts holds by reference.
+// waiting a day), counts them, counts holds by reference and runs the same
+// purge the background worker runs.
 type retentionDB struct {
 	age   func(t *testing.T, key string, d time.Duration)
 	count func(t *testing.T, key string) int
 	holds func(t *testing.T, reference string) int
+	purge func(t *testing.T, limit int) int
 }
 
 // bootRetention boots the real binary on a fresh Postgres and returns its
@@ -90,6 +93,14 @@ func bootRetention(t *testing.T) (string, retentionDB) {
 		holds: func(t *testing.T, reference string) int {
 			t.Helper()
 			return query(`SELECT count(*) FROM provider_authorizations WHERE reference = $1`, reference)
+		},
+		purge: func(t *testing.T, limit int) int {
+			t.Helper()
+			n, err := postgres.NewIdempotencyStore(pool).PurgeExpired(context.Background(), limit)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return n
 		},
 	}
 }
@@ -162,4 +173,65 @@ func TestExpiredIdempotencyKeysExecuteAgain(t *testing.T) {
 			t.Fatalf("past the window = %d replayed=%q body=%s, want the refusal re-executed WITHOUT the replay header", status, replayed, again)
 		}
 	})
+}
+
+// TestPurgeRacingRequestsOnExpiredKeys: the purge may run any moment a
+// request lands on an expired key. Every racing request must answer 201,
+// each key must end with exactly one live row, and exactly one hold per key
+// may exist (the winner's): the purge may never delete a row a request
+// holds, never wait on one, and never break the claim.
+func TestPurgeRacingRequestsOnExpiredKeys(t *testing.T) {
+	base, db := bootRetention(t)
+	_, tokJSON := call(t, http.MethodPost, base+"/tokens", "ret-tok", `{"scenario":"approve"}`)
+	token := tokJSON["token"].(string)
+
+	const rounds = 10
+	for i := range rounds {
+		key := fmt.Sprintf("ret-race-%d", i)
+		body := fmt.Sprintf(`{"amountMinor":%d,"currency":"EUR","paymentMethodToken":%q,"reference":"cs-race"}`, 1000+i, token)
+		if status, replayed, _ := rawPost(t, base+"/authorizations", key, body); status != http.StatusCreated || replayed != "" {
+			t.Fatalf("round %d: seed authorize = %d replayed=%q", i, status, replayed)
+		}
+		db.age(t, key, 30*time.Hour)
+
+		results := make([]struct {
+			status   int
+			replayed string
+			body     string
+		}, 2)
+		purged := make(chan struct{})
+		go func() {
+			defer close(purged)
+			db.purge(t, 100)
+		}()
+		for j := range results {
+			s, r, b := rawPost(t, base+"/authorizations", key, body)
+			results[j].status, results[j].replayed, results[j].body = s, r, b
+		}
+		<-purged
+
+		fresh, replayed := 0, 0
+		for _, r := range results {
+			if r.status != http.StatusCreated {
+				t.Fatalf("round %d: a request racing the purge answered %d body=%s", i, r.status, r.body)
+			}
+			switch r.replayed {
+			case "":
+				fresh++
+			case "true":
+				replayed++
+			default:
+				t.Fatalf("round %d: Idempotency-Replayed = %q", i, r.replayed)
+			}
+		}
+		if fresh != 1 || replayed != 1 {
+			t.Fatalf("round %d: racing pair = %d fresh + %d replayed, want 1 + 1 (the expired row never replays; the winner's refresh does)", i, fresh, replayed)
+		}
+		if n := db.count(t, key); n != 1 {
+			t.Fatalf("round %d: rows of the racing key = %d, want 1", i, n)
+		}
+	}
+	if holds := db.holds(t, "cs-race"); holds != rounds {
+		t.Fatalf("holds created = %d, want %d (one per key: the claim still runs exactly once)", holds, rounds)
+	}
 }
