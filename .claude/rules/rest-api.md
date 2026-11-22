@@ -32,6 +32,11 @@ Route -> use case mapping, kept in sync with `apis/openapi.yaml` by hand. Every 
   and replayed; RETRYABLE (`over-refund`, `provider-timeout`, `internal-error`,
   `dependency-unavailable`) is not stored — the key is released and the retry executes again.
   No entry is OUTCOME: no keyed command commits state before refusing.
+- Retention (ADR 0005, addendum 2026-11-22): a stored answer lives for `idempotency.RetentionTTL`
+  (24 h). Inside the window the replay contract is unchanged; past it the key is free — the claim
+  refreshes the expired row and the request re-executes (another request under the key is a new
+  request, not `idempotency-key-reused`). A background purge (`cmd/api/retention.go`) deletes the
+  expired rows hourly in bounded batches.
 - `rejectNUL` runs first: a NUL in path, query or body is a client error, never a Postgres 22021.
 - Auth: none. The fleet-wide REST+MCP auth was deliberately reverted 2026-09-11 and stays off;
   `internal/architecture/fitness_test.go`'s TestNoAuthMiddlewareReintroduced guards it.

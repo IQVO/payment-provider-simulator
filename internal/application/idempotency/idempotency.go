@@ -2,7 +2,18 @@
 // of ports, which holds interfaces only).
 package idempotency
 
-import "github.com/IQVO/payment-provider-simulator/internal/application/views"
+import (
+	"time"
+
+	"github.com/IQVO/payment-provider-simulator/internal/application/views"
+)
+
+// RetentionTTL is how long a stored answer can still answer a replay: the
+// ONE age (the fleet default, 24h) shared by the replay read's age guard,
+// the claim's refresh of an expired row and the background purge (ADR 0005,
+// addendum 2026-11-22). Within the window the replay contract is unchanged;
+// past it the key is free and the request re-executes.
+const RetentionTTL = 24 * time.Hour
 
 // Record is what the idempotency store remembers for one (operation, key).
 type Record struct {
