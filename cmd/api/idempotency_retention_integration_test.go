@@ -231,7 +231,7 @@ func TestPurgeRacingRequestsOnExpiredKeys(t *testing.T) {
 			t.Fatalf("round %d: rows of the racing key = %d, want 1", i, n)
 		}
 	}
-	if holds := db.holds(t, "cs-race"); holds != rounds {
-		t.Fatalf("holds created = %d, want %d (one per key: the claim still runs exactly once)", holds, rounds)
+	if holds := db.holds(t, "cs-race"); holds != 2*rounds {
+		t.Fatalf("holds created = %d, want %d (two per key: the seed's hold and the racing winner's — the claim still runs exactly once per racing pair)", holds, 2*rounds)
 	}
 }
